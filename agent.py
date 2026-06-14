@@ -5,10 +5,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-ARK_API_KEY = os.getenv("ARK_API_KEY")
-ARK_MODEL = os.getenv("ARK_MODEL")
-ARK_BASE_URL = os.getenv("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
-
 # 对话历史管理
 conversation_history = []
 
@@ -56,21 +52,29 @@ def build_messages(image_path, text_requirement):
     messages.append({"role": "user", "content": content})
     return messages
 
-def generate_script(image_path, text_requirement):
+def generate_script(image_path, text_requirement, api_key, model_name):
     """调用火山引擎API生成剧本"""
     global conversation_history
+
+    # 使用用户提供的密钥，或从环境变量获取
+    api_key = api_key or os.getenv("ARK_API_KEY")
+    model_name = model_name or os.getenv("ARK_MODEL", "doubao-seed-1-6-vision-250815")
+    base_url = os.getenv("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
+
+    if not api_key:
+        return {"error": "请输入API密钥"}
 
     try:
         messages = build_messages(image_path, text_requirement)
 
         response = requests.post(
-            f"{ARK_BASE_URL}/chat/completions",
+            f"{base_url}/chat/completions",
             headers={
-                "Authorization": f"Bearer {ARK_API_KEY}",
+                "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
             },
             json={
-                "model": ARK_MODEL,
+                "model": model_name,
                 "messages": messages,
                 "temperature": 0.7
             },

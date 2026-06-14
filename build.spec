@@ -8,8 +8,8 @@ block_cipher = None
 # 获取site-packages路径
 user_site = site.getusersitepackages()
 
-# 收集需要打包的数据文件
-datas = [('.env', '.')]
+# 收集需要打包的数据文件（不再打包.env）
+datas = []
 
 # 添加gradio相关的数据文件
 for sp in [user_site] + site.getsitepackages():
