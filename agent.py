@@ -13,8 +13,8 @@ def encode_image(image_path):
     with open(image_path, 'rb') as f:
         return base64.b64encode(f.read()).decode('utf-8')
 
-def build_messages(image_path, text_requirement):
-    """构建消息，包含图片和文字"""
+def build_messages(image_paths, text_requirement):
+    """构建消息，包含多张图片和文字"""
     messages = []
 
     # 添加历史对话
@@ -23,15 +23,16 @@ def build_messages(image_path, text_requirement):
     # 构建当前消息
     content = []
 
-    # 添加图片
-    if image_path:
-        image_base64 = encode_image(image_path)
-        content.append({
-            "type": "image_url",
-            "image_url": {
-                "url": f"data:image/jpeg;base64,{image_base64}"
-            }
-        })
+    # 添加多张图片
+    if image_paths:
+        for image_path in image_paths:
+            image_base64 = encode_image(image_path)
+            content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{image_base64}"
+                }
+            })
 
     # 添加文字
     if text_requirement:
@@ -52,7 +53,7 @@ def build_messages(image_path, text_requirement):
     messages.append({"role": "user", "content": content})
     return messages
 
-def generate_script(image_path, text_requirement, api_key, model_name):
+def generate_script(image_paths, text_requirement, api_key, model_name):
     """调用火山引擎API生成剧本"""
     global conversation_history
 
@@ -65,7 +66,7 @@ def generate_script(image_path, text_requirement, api_key, model_name):
         return {"error": "请输入API密钥"}
 
     try:
-        messages = build_messages(image_path, text_requirement)
+        messages = build_messages(image_paths, text_requirement)
 
         response = requests.post(
             f"{base_url}/chat/completions",
