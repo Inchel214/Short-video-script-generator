@@ -29,7 +29,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: dist/短视频剧本生成器/
+          path: dist/短视频剧本生成器v2/
 
   build-mac:
     runs-on: macos-latest
@@ -54,7 +54,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mac-build
-          path: dist/短视频剧本生成器/
+          path: dist/短视频剧本生成器v2/
 
   release:
     needs: [build-windows, build-mac]
