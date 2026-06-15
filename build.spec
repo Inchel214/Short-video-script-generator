@@ -1,5 +1,4 @@
 # -*- mode: python ; coding: utf-8 -*-
-import sys
 from pathlib import Path
 import site
 
@@ -46,11 +45,6 @@ a = Analysis(
     noarchive=False,
 )
 
-# Pillow 的 AVIF 扩展不是 fat binary，会阻止 universal2 打包。
-# 这个项目不依赖 AVIF 功能，因此在 macOS 下将其排除。
-if sys.platform == 'darwin':
-    a.binaries = [binary for binary in a.binaries if '_avif' not in binary[0]]
-
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
@@ -66,7 +60,7 @@ exe = EXE(
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
-    target_arch='universal2' if sys.platform == 'darwin' else None,
+    target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
 )

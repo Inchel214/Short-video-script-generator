@@ -38,12 +38,13 @@ pyinstaller build.spec
 
 4. 将以下文件一起发给用户：
    - Windows：`短视频剧本生成器.exe`
-   - macOS：`dist/短视频剧本生成器/短视频剧本生成器`
+   - macOS Intel：`dist/短视频剧本生成器/短视频剧本生成器`
+   - macOS Apple Silicon：`dist/短视频剧本生成器/短视频剧本生成器`
    - `.env`（配置好API密钥）
 
-用户直接下载 macOS 产物即可，当前构建会尽量生成同时兼容 Intel 和 Apple Silicon 的 universal2 包。
+用户请下载和自己 Mac 芯片架构匹配的 mac 产物。
 
-> 如果你在 Mac 上看到 `bad CPU type in executable`，通常说明拿到了不匹配当前芯片架构的二进制文件。当前构建已改为更通用的 universal2 输出，并排除了会破坏该流程的 AVIF 原生扩展。
+> 如果你在 Mac 上看到 `bad CPU type in executable`，通常说明拿到了不匹配当前芯片架构的二进制文件。当前仓库会分别产出 Intel 和 Apple Silicon 两个 macOS 包，请选择和机器匹配的那个。
 
 ---
 
