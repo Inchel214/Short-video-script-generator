@@ -79,7 +79,7 @@ def generate_script(image_paths, text_requirement, api_key, model_name):
                 "messages": messages,
                 "temperature": 0.7
             },
-            timeout=60
+            timeout=90
         )
 
         result = response.json()
