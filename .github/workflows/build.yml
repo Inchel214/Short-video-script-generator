@@ -32,15 +32,7 @@ jobs:
           path: dist/短视频剧本生成器/
 
   build-mac:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runs-on: macos-13
-            artifact-name: mac-build-intel
-          - runs-on: macos-14
-            artifact-name: mac-build-arm64
-    runs-on: ${{ matrix.runs-on }}
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       
@@ -56,12 +48,12 @@ jobs:
           pip install pyinstaller
           
       - name: Build
-        run: python -m PyInstaller build.spec --noconfirm
+        run: python -m PyInstaller build.spec --noconfirm --target-arch universal2
           
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact-name }}
+          name: mac-build
           path: dist/短视频剧本生成器/
 
   release:
@@ -76,18 +68,12 @@ jobs:
           
       - uses: actions/download-artifact@v4
         with:
-          name: mac-build-intel
-          path: mac-intel
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: mac-build-arm64
-          path: mac-arm64
+          name: mac-build
+          path: mac
           
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             windows/**/*
-            mac-intel/**/*
-            mac-arm64/**/*
+            mac/**/*
