@@ -39,19 +39,19 @@
     ],
     "extraResources": [
       {
+        "from": "dist/",
+        "to": ".",
+        "filter": ["api.exe", "api"]
+      },
+      {
         "from": "dist/api/",
         "to": ".",
-        "filter": ["api*", "!*.py", "!__pycache__", "!*.pyc"]
+        "filter": ["**/*"]
       },
       {
         "from": "src/backend/dist/",
         "to": ".",
-        "filter": ["api*", "!*.py", "!__pycache__", "!*.pyc"]
-      },
-      {
-        "from": "dist/",
-        "to": ".",
-        "filter": ["api.exe", "api"]
+        "filter": ["**/*"]
       }
     ],
     "win": {
