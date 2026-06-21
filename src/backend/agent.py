@@ -5,7 +5,7 @@ Agent 核心逻辑
 import base64
 import requests
 import os
-import logger
+from . import logger
 
 # 获取日志记录器
 log = logger.setup_logger()
@@ -41,18 +41,19 @@ def encode_image_from_base64(image_base64):
         raise ValueError("无效的图片 base64 编码")
 
 
-def build_messages(image_data_list, text_requirement):
+def build_messages(image_data_list, text_requirement, shots_count=None):
     """
     构建消息，包含多张图片和文字
     
     Args:
         image_data_list: base64 编码的图片列表
         text_requirement: 用户输入的文字要求
+        shots_count: 预期生成的分镜数量（可选）
     
     Returns:
         list: 消息列表
     """
-    log.info(f"开始构建消息，图片数量: {len(image_data_list) if image_data_list else 0}")
+    log.info(f"开始构建消息，图片数量: {len(image_data_list) if image_data_list else 0}, 镜头数量: {shots_count}")
     
     messages = []
     
@@ -87,19 +88,25 @@ def build_messages(image_data_list, text_requirement):
             except Exception as e:
                 log.warning(f"跳过图片 {i+1}: {str(e)}")
     
+    # 构建镜头数量限制说明
+    shots_limit_text = ""
+    if shots_count and isinstance(shots_count, int) and shots_count > 0:
+        shots_limit_text = f"\n\n重要要求：请严格控制在 {shots_count} 个分镜以内，不要超出这个数量。"
+        log.info(f"已设置分镜数量限制: {shots_count}")
+    
     # 添加文字
     if text_requirement:
         content.append({
             "type": "text",
             "text": f"""你是一个专业的短视频剧本编剧。请根据以下信息生成一个完整的短视频剧本：
 
-用户要求：{text_requirement}
+用户要求：{text_requirement}{shots_limit_text}
 
 请生成包含以下内容的剧本：
 1. 剧本标题
 2. 总时长
 3. 剧情简介和人物设定
-4. 分镜列表（每个分镜包含：时长、景别、画面描述、运镜方式、旁白/对话、音效建议）
+4. 分镜列表（每个分镜包含：时长、景别、画面描述、运镜方式、旁白/对话、音效建议）{f'，严格控制在 {shots_count} 个分镜以内' if shots_count and isinstance(shots_count, int) and shots_count > 0 else ''}
 
 请用JSON格式返回结果。"""
         })
@@ -110,7 +117,7 @@ def build_messages(image_data_list, text_requirement):
     return messages
 
 
-def generate_script(image_data_list, text_requirement, api_key='', model_name='doubao-seed-1-6-vision-250815'):
+def generate_script(image_data_list, text_requirement, api_key='', model_name='doubao-seed-1-6-vision-250815', shots_count=None):
     """
     调用火山引擎 API 生成剧本
     
@@ -136,7 +143,7 @@ def generate_script(image_data_list, text_requirement, api_key='', model_name='d
         return {"error": "请输入API密钥"}
     
     try:
-        messages = build_messages(image_data_list, text_requirement)
+        messages = build_messages(image_data_list, text_requirement, shots_count)
         log.info("消息构建完成，准备调用API")
         
         log.debug(f"调用API: {base_url}/chat/completions")

@@ -30,7 +30,8 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            enableRemoteModule: false
+            enableRemoteModule: false,
+            webSecurity: false
         },
         show: false
     });
@@ -72,7 +73,7 @@ function startFlaskServer() {
     const apiPath = path.join(__dirname, '..', 'backend', 'api.py');
     
     // 启动 Flask
-    flaskProcess = spawn(pythonCmd, [apiPath], {
+    flaskProcess = spawn(pythonCmd, ['-m', 'src.backend.api'], {
         cwd: path.join(__dirname, '../..'),
         stdio: ['pipe', 'pipe', 'pipe'],
         shell: true

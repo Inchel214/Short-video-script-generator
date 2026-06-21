@@ -5,7 +5,7 @@ Flask API 服务
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from . import agent
-import logger
+from . import logger
 import os
 
 # 创建 Flask 应用
@@ -85,7 +85,8 @@ def generate_script():
             image_data_list=images,
             text_requirement=text,
             api_key=api_key,
-            model_name=model_name
+            model_name=model_name,
+            shots_count=shots_count
         )
         
         # 处理结果
@@ -157,4 +158,4 @@ def run_server(host='127.0.0.1', port=5000, debug=False):
 
 
 if __name__ == '__main__':
-    run_server(debug=True)
+    run_server(debug=False)
