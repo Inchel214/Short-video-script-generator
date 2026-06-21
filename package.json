@@ -21,7 +21,6 @@
   "build": {
     "appId": "com.drama.scriptgenerator",
     "productName": "短视频剧本生成器",
-    "publish": "never",
     "directories": {
       "output": "dist"
     },
