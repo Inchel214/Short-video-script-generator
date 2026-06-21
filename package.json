@@ -41,12 +41,17 @@
       {
         "from": "dist/api/",
         "to": ".",
-        "filter": ["**/api*", "!**/*.py", "!**/__pycache__", "!**/*.pyc"]
+        "filter": ["api*", "!*.py", "!__pycache__", "!*.pyc"]
       },
       {
         "from": "src/backend/dist/",
         "to": ".",
-        "filter": ["**/api*", "!**/*.py", "!**/__pycache__", "!**/*.pyc"]
+        "filter": ["api*", "!*.py", "!__pycache__", "!*.pyc"]
+      },
+      {
+        "from": "dist/",
+        "to": ".",
+        "filter": ["api.exe", "api"]
       }
     ],
     "win": {
