@@ -35,9 +35,10 @@ def setup_logger(name='script_generator', log_dir='logs', level=logging.DEBUG):
     )
     
     # 创建日志目录
-    # 获取应用根目录（相对于 backend 模块）
-    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    log_path = os.path.join(backend_dir, log_dir)
+    # 优先使用当前工作目录（适用于打包后的 exe 目录）
+    cwd = os.getcwd()
+    # 检查当前工作目录是否包含 logs 或是否是项目根目录
+    log_path = os.path.join(cwd, log_dir)
     os.makedirs(log_path, exist_ok=True)
     
     # 按日期生成日志文件名

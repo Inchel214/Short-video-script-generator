@@ -316,6 +316,14 @@ async function generateScript() {
     const text = elements.textInput.value.trim();
     const shotsCount = elements.shotsCountInput.value.trim();
 
+    console.log('=== DEBUG: 收集参数 ===');
+    console.log('shotsCountInput raw value:', elements.shotsCountInput.value);
+    console.log('shotsCountInput type:', typeof elements.shotsCountInput.value);
+    console.log('shotsCount after trim:', shotsCount);
+    console.log('shotsCount length:', shotsCount.length);
+    console.log('parseInt result:', shotsCount ? parseInt(shotsCount) : null);
+    console.log('=======================');
+
     // 验证输入
     if (!apiKey) {
         showError('请输入 API 密钥');
@@ -342,18 +350,24 @@ async function generateScript() {
     console.log('文字长度:', text.length);
 
     try {
+        const requestBody = {
+            images: state.images,
+            text: text,
+            api_key: apiKey,
+            model_name: modelName,
+            shots_count: shotsCount ? parseInt(shotsCount) : null
+        };
+        console.log('=== DEBUG: 请求体 ===');
+        console.log('shots_count in request:', requestBody.shots_count);
+        console.log('requestBody:', JSON.stringify(requestBody, null, 2));
+        console.log('=======================');
+
         const response = await fetch(`${API_BASE_URL}/generate`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                images: state.images,
-                text: text,
-                api_key: apiKey,
-                model_name: modelName,
-                shots_count: shotsCount ? parseInt(shotsCount) : null
-            })
+            body: JSON.stringify(requestBody)
         });
 
         const data = await response.json();

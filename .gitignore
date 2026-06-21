@@ -41,6 +41,8 @@ ehthumbs.db
 desktop.ini
 
 # 构建产物
+build/
+dist/
 *.exe
 *.dmg
 *.pkg

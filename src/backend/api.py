@@ -4,8 +4,8 @@ Flask API 服务
 """
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from . import agent
-from . import logger
+from src.backend import agent
+from src.backend import logger
 import os
 
 # 创建 Flask 应用
@@ -52,12 +52,20 @@ def generate_script():
     try:
         # 解析请求数据
         data = request.get_json()
+        log.info(f"DEBUG: request.get_json() type={type(data)}, value={repr(data)[:200]}")
         
         if not data:
             log.warning("请求体为空")
             return jsonify({
                 'success': False,
                 'error': '请求体不能为空'
+            }), 400
+        
+        if not isinstance(data, dict):
+            log.error(f"请求体格式错误，期望 dict，实际为 {type(data)}")
+            return jsonify({
+                'success': False,
+                'error': f'请求体格式错误，期望 JSON 对象，实际为 {type(data).__name__}'
             }), 400
         
         # 获取参数
@@ -68,6 +76,9 @@ def generate_script():
         shots_count = data.get('shots_count')  # 可选，不提供则由AI自动判断
         
         log.info(f"请求参数：图片数量={len(images)}, 文字长度={len(text)}, 模型={model_name}, 镜头数量={shots_count}")
+        log.info(f"DEBUG: shots_count type={type(shots_count)}, value={shots_count}, is_int={isinstance(shots_count, int)}")
+        log.info(f"DEBUG: request body keys={list(data.keys())}")
+        log.info(f"DEBUG: full shots_count value from request={repr(data.get('shots_count'))}")
         
         # 至少需要图片或文字之一
         if not images and not text:
@@ -89,6 +100,14 @@ def generate_script():
             shots_count=shots_count
         )
         
+        log.info(f"DEBUG: agent.generate_script() returned type={type(result)}, is_dict={isinstance(result, dict)}")
+        if not isinstance(result, dict):
+            log.error(f"Agent 返回格式错误，期望 dict，实际为 {type(result)}: {repr(result)[:200]}")
+            return jsonify({
+                'success': False,
+                'error': f'Agent 返回格式错误: {type(result).__name__}'
+            }), 500
+        
         # 处理结果
         if 'error' in result:
             log.error(f"生成剧本失败：{result['error']}")
@@ -105,10 +124,15 @@ def generate_script():
         
         # 如果用户指定了镜头数量，对分镜列表进行截断兜底
         original_shots_count = len(shots)
+        log.info(f"DEBUG: 截断检查 - shots_count={shots_count}, type={type(shots_count)}, original_shots_count={original_shots_count}")
+        log.info(f"DEBUG: 截断条件判断 - shots_count truthy={bool(shots_count)}, is_int={isinstance(shots_count, int)}, shots_count>0={shots_count > 0 if isinstance(shots_count, (int, float)) else 'N/A'}, original>shots={original_shots_count > shots_count if isinstance(shots_count, (int, float)) else 'N/A'}")
+        
         if shots_count and isinstance(shots_count, int) and shots_count > 0 and original_shots_count > shots_count:
             log.warning(f"AI返回分镜数量({original_shots_count})超过限制({shots_count})，进行截断")
             shots = shots[:shots_count]
             log.info(f"截断后分镜数量: {len(shots)}")
+        else:
+            log.info(f"DEBUG: 截断条件不满足，不执行截断")
         
         transformed_result = {
             'synopsis': result.get('剧情简介和人物设定', {}).get('剧情简介', '') or result.get('剧情简介', ''),
@@ -131,6 +155,7 @@ def generate_script():
         }), 500
 
 
+@app.route('/api/clear', methods=['POST'])
 @app.route('/api/clear-history', methods=['POST'])
 def clear_history():
     """

@@ -4,6 +4,7 @@
  */
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { spawn } = require('child_process');
 
 // 开发模式标志
@@ -61,22 +62,46 @@ function createWindow() {
 }
 
 /**
+ * 获取后端 API 可执行文件名称
+ */
+function getApiExecutableName() {
+    if (process.platform === 'win32') {
+        return 'api.exe';
+    } else {
+        return 'api';
+    }
+}
+
+/**
  * 启动 Flask 服务
  */
 function startFlaskServer() {
     console.log('启动 Flask 服务...');
     
-    // Python 命令（根据平台选择）
-    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    const apiName = getApiExecutableName();
     
-    // Flask API 路径
-    const apiPath = path.join(__dirname, '..', 'backend', 'api.py');
+    // API 可执行文件路径
+    // 打包后：api 通过 extraResources 放在 resources 目录下
+    // 开发模式：从 src/backend/dist 目录查找
+    let apiExePath;
+    if (process.resourcesPath) {
+        // 打包后的路径：resources/api
+        apiExePath = path.join(process.resourcesPath, apiName);
+    } else {
+        // 开发模式路径
+        apiExePath = path.join(__dirname, '..', 'backend', 'dist', apiName);
+    }
     
-    // 启动 Flask
-    flaskProcess = spawn(pythonCmd, ['-m', 'src.backend.api'], {
-        cwd: path.join(__dirname, '../..'),
+    console.log(`API 路径: ${apiExePath}`);
+    console.log(`API 是否存在: ${fs.existsSync(apiExePath)}`);
+    console.log(`process.resourcesPath: ${process.resourcesPath || 'undefined'}`);
+    
+    // 启动 API（直接运行可执行文件，无需 Python）
+    const spawnCwd = process.resourcesPath || path.join(__dirname, '../..');
+    flaskProcess = spawn(apiExePath, [], {
+        cwd: spawnCwd,
         stdio: ['pipe', 'pipe', 'pipe'],
-        shell: true
+        shell: false
     });
     
     // 监听 Flask 输出
