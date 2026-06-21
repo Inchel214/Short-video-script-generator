@@ -63,11 +63,11 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt pyinstaller
         
-      - name: Build Python backend
-        run: pyinstaller api.spec
-          
       - name: Install Node dependencies
         run: npm install
+        
+      - name: Build Python backend
+        run: pyinstaller api.spec
         
       - name: Build Electron app
         run: npx electron-builder --mac --publish=never

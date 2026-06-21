@@ -41,17 +41,7 @@
       {
         "from": "dist/",
         "to": ".",
-        "filter": ["api.exe", "api"]
-      },
-      {
-        "from": "dist/api/",
-        "to": ".",
-        "filter": ["**/*"]
-      },
-      {
-        "from": "src/backend/dist/",
-        "to": ".",
-        "filter": ["**/*"]
+        "filter": ["api"]
       }
     ],
     "win": {
