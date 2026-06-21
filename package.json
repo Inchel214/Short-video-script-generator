@@ -39,6 +39,11 @@
     ],
     "extraResources": [
       {
+        "from": "dist/api/",
+        "to": ".",
+        "filter": ["**/api*", "!**/*.py", "!**/__pycache__", "!**/*.pyc"]
+      },
+      {
         "from": "src/backend/dist/",
         "to": ".",
         "filter": ["**/api*", "!**/*.py", "!**/__pycache__", "!**/*.pyc"]
