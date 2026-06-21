@@ -11,102 +11,69 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.10'
+          node-version: '20'
           
       - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
+        run: npm install
           
-      - name: Build
-        run: python -m PyInstaller build.spec --noconfirm
-          
+      - name: Build Electron app
+        run: npm run electron:build:win
+        
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: dist/短视频剧本生成器/
+          path: dist/*.exe
 
   build-mac:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
       
-      - name: Set up Python (arm64 native)
-        uses: actions/setup-python@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.10'
-      
-      - name: Build arm64 version
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
-          python -m PyInstaller build.spec --noconfirm
-          mv dist/短视频剧本生成器 dist/短视频剧本生成器_arm64
-      
-      - name: Set up Rosetta environment for x86_64 build
-        run: |
-          # Install Rosetta if needed
-          softwareupdate --install-rosetta --agree-to-license || true
+          node-version: '20'
           
-      - name: Build x86_64 version via Rosetta
-        run: |
-          # Run in Rosetta environment
-          arch -x86_64 /bin/bash -c "
-            # Clean up previous builds
-            rm -rf build dist/短视频剧本生成器
-            
-            # Reinstall dependencies in Rosetta environment
-            arch -x86_64 python3 -m pip install --force-reinstall --no-cache-dir -r requirements.txt
-            arch -x86_64 python3 -m pip install --force-reinstall --no-cache-dir pyinstaller
-            
-            # Build for x86_64
-            arch -x86_64 python3 -m PyInstaller build.spec --noconfirm
-            mv dist/短视频剧本生成器 dist/短视频剧本生成器_x86_64
-          "
-      
-      - name: Create Universal2 binary
-        run: |
-          # Start with arm64 as base
-          cp -r dist/短视频剧本生成器_arm64 dist/短视频剧本生成器_universal2
-          
-          # Find the main executable (should be in the directory directly)
-          MAIN_EXEC="短视频剧本生成器"
-          
-          # Create Universal2 by combining both architectures
-          lipo -create \
-            dist/短视频剧本生成器_arm64/"$MAIN_EXEC" \
-            dist/短视频剧本生成器_x86_64/"$MAIN_EXEC" \
-            -output dist/短视频剧本生成器_universal2/"$MAIN_EXEC"
-          
-          # Verify the universal binary
-          file dist/短视频剧本生成器_universal2/"$MAIN_EXEC"
-      
-      - name: Upload arm64 artifact
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Build Electron app
+        run: npm run electron:build:mac
+        
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mac-build-arm64
-          path: dist/短视频剧本生成器_arm64/
+          name: mac-build
+          path: dist/*.dmg
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       
-      - name: Upload x86_64 artifact
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Build Electron app
+        run: npm run electron:build:linux
+        
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mac-build-intel
-          path: dist/短视频剧本生成器_x86_64/
-      
-      - name: Upload Universal2 artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mac-build-universal2
-          path: dist/短视频剧本生成器_universal2/
+          name: linux-build
+          path: dist/*.AppImage
 
   release:
-    needs: [build-windows, build-mac]
+    needs: [build-windows, build-mac, build-linux]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
@@ -117,24 +84,18 @@ jobs:
           
       - uses: actions/download-artifact@v4
         with:
-          name: mac-build-intel
-          path: mac-intel
+          name: mac-build
+          path: mac
 
       - uses: actions/download-artifact@v4
         with:
-          name: mac-build-arm64
-          path: mac-arm64
-      
-      - uses: actions/download-artifact@v4
-        with:
-          name: mac-build-universal2
-          path: mac-universal2
+          name: linux-build
+          path: linux
           
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             windows/**/*
-            mac-intel/**/*
-            mac-arm64/**/*
-            mac-universal2/**/*
+            mac/**/*
+            linux/**/*

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>短视频剧本生成器</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 头部区域 -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-text">AI 主图&详情图</span>
+            </div>
+            <h1>AI帮写需求，一键生成剧本</h1>
+            <p>上传点啥，AI 智能分析并帮写短视频剧本</p>
+        </header>
+
+        <!-- 步骤指示器 -->
+        <div class="steps-wrapper">
+            <div class="steps">
+                <div class="step" data-step="1">
+                    <div class="step-icon-wrap">
+                        <img class="step-icon-img" src="https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937475359/ad33/148f/69e4/454a3e7c80690e90bf3cb6c9a7645bf6.png" alt="">
+                        <span class="step-check">✓</span>
+                    </div>
+                    <span class="step-label">输入</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step" data-step="2">
+                    <div class="step-icon-wrap">
+                        <span class="step-number">2</span>
+                        <span class="step-check">✓</span>
+                    </div>
+                    <span class="step-label">分析中</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step" data-step="3">
+                    <div class="step-icon-wrap">
+                        <span class="step-number">3</span>
+                        <span class="step-check">✓</span>
+                    </div>
+                    <span class="step-label">确认规划</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step" data-step="4">
+                    <div class="step-icon-wrap">
+                        <span class="step-number">4</span>
+                        <span class="step-check">✓</span>
+                    </div>
+                    <span class="step-label">生成中</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step" data-step="5">
+                    <div class="step-icon-wrap">
+                        <span class="step-number">5</span>
+                        <span class="step-check">✓</span>
+                    </div>
+                    <span class="step-label">完成</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <main class="main-content">
+            <!-- 左侧：输入区域 -->
+            <div class="input-section">
+                <!-- API 配置 -->
+                <div class="config-section">
+                    <h3>API 配置</h3>
+                    <div class="config-item">
+                        <label for="api-key">API密钥</label>
+                        <input type="password" id="api-key" placeholder="输入火山引擎API密钥，如：ark-xxx...">
+                    </div>
+                    <div class="config-item">
+                        <label for="model-name">模型名称</label>
+                        <input type="text" id="model-name" value="doubao-seed-1-6-vision-250815">
+                    </div>
+                </div>
+
+                <!-- 图片上传 -->
+                <div class="upload-section">
+                    <h3>上传图片</h3>
+                    <div class="upload-area" id="upload-area">
+                        <div class="upload-content">
+                            <span style="font-size: 48px; opacity: 0.5;">📷</span>
+                            <p>拖入图片或点击选择</p>
+                            <p class="upload-hint">支持 JPG、PNG 格式</p>
+                        </div>
+                        <input type="file" id="file-input" multiple accept="image/*" hidden>
+                    </div>
+                    
+                    <!-- 已上传图片预览 -->
+                    <div class="preview-section" id="preview-section" style="display: none;">
+                        <h4>已上传图片 <span id="image-count">0</span> 张</h4>
+                        <div class="image-preview" id="image-preview"></div>
+                        <button class="btn-clear" id="clear-images">清空图片</button>
+                    </div>
+                </div>
+
+                <!-- 文字输入 -->
+                <div class="text-section">
+                    <h3>输入要求</h3>
+                    <textarea id="text-input" placeholder="例如：生成一个30秒的温馨风格vlog剧本..."></textarea>
+                </div>
+
+                <!-- 镜头数量输入 -->
+                <div class="shots-count-section">
+                    <h3>预期生成镜头数量</h3>
+                    <input type="number" id="shots-count-input" min="1" max="10" placeholder="不填则由AI自动判断">
+                </div>
+
+                <!-- 生成按钮 -->
+                <div class="action-section">
+                    <button class="btn-generate" id="generate-btn">
+                        <span>✨</span>
+                        <span>去生成</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 右侧：输出区域 -->
+            <div class="output-section">
+                <!-- 加载状态 -->
+                <div class="loading-section" id="loading" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p>AI 正在生成剧本，请稍候...</p>
+                </div>
+
+                <!-- 结果显示 -->
+                <div class="result-section" id="result-section">
+                    <!-- 确认规划标题 -->
+                    <div class="result-header">
+                        <div class="result-header-left">
+                            <div class="result-header-icon">
+                                <img src="https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937472743/1778/ced8/0153/7f47f2672201551ad731f4e78a980e2c.png" alt="">
+                            </div>
+                            <div class="result-header-text">
+                                <span class="result-header-title">确认规划</span>
+                                <span class="result-header-hint">请确认剧本规范和分镜规划</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 剧情简介 -->
+                    <div class="result-body">
+                        <div class="result-card">
+                            <div class="result-card-title">
+                                <img src="https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937475422/3356/9eaf/f0cf/38d8dc34a735f1b080afb11f6e3aabc1.png" alt="">
+                                <div class="result-card-title-text">
+                                    <span class="result-card-main-title">剧情简介</span>
+                                    <span class="result-card-sub-title">剧情简介和人物设定</span>
+                                </div>
+                                <img class="result-card-edit-icon" src="https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937478818/2c03/0821/5b7f/499e02d41a7ba6618507de66bb4780f8.png" alt="编辑">
+                                <img class="arrow-icon" src="https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937478858/c347/651d/afa5/bb9fede252f974bddb880ec051aef1e3.png" alt="展开">
+                            </div>
+                            <div class="result-card-content">
+                                <div class="synopsis-section" id="synopsis-section">
+                                    <p class="placeholder">生成的剧本内容将显示在这里...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 分镜生成标题 -->
+                    <div class="shots-header">
+                        <div class="shots-header-left">
+                            <img src="https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937478909/b6c5/b104/a247/a5086ce6ff3d02b09e8319554662c0d5.png" alt="">
+                            <span>分镜生成</span>
+                        </div>
+                        <span class="shots-count">共 <span id="shot-count">0</span> 个分镜</span>
+                    </div>
+
+                    <!-- 分镜列表 -->
+                    <div class="shots-list" id="shots-list">
+                        <p class="placeholder">分镜内容将显示在这里...</p>
+                    </div>
+
+                    <!-- 清空历史按钮 -->
+                    <button class="btn-clear-history" id="clear-history">清空对话历史</button>
+                </div>
+
+                <!-- 错误提示 -->
+                <div class="error-section" id="error-section" style="display: none;">
+                    <div class="error-content">
+                        <h3>出错了</h3>
+                        <p id="error-message"></p>
+                        <button class="btn-retry" id="retry-btn">重试</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 页脚 -->
+        <footer class="footer">
+            <p>短视频剧本生成器 | 基于火山引擎大模型</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
