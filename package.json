@@ -28,18 +28,20 @@
     "files": [
       "src/**/*",
       "node_modules/**/*",
-      "package.json"
+      "package.json",
+      "!**/.env*",
+      "!**/.git/**",
+      "!**/logs/**",
+      "!**/__pycache__/**",
+      "!**/*.pyc",
+      "!**/*.pyo",
+      "!**/node_modules/.cache/**"
     ],
     "extraResources": [
       {
-        "from": "src/backend/dist/api.exe",
-        "to": "api.exe",
-        "filter": ["**/api.exe"]
-      },
-      {
-        "from": "src/backend/dist/api",
-        "to": "api",
-        "filter": ["**/api"]
+        "from": "src/backend/dist/",
+        "to": ".",
+        "filter": ["**/api*", "!**/*.py", "!**/__pycache__", "!**/*.pyc"]
       }
     ],
     "win": {

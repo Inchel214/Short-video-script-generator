@@ -33,11 +33,17 @@ jobs:
       - name: Build Electron app
         run: npx electron-builder --win --publish=never
         
-      - name: Upload artifact
+      - name: Upload portable artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
           path: dist/*.exe
+          
+      - name: Upload unpacked artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-unpacked
+          path: dist/win-unpacked/
 
   build-mac:
     runs-on: macos-14
@@ -117,6 +123,11 @@ jobs:
           
       - uses: actions/download-artifact@v4
         with:
+          name: windows-build-unpacked
+          path: windows-unpacked
+
+      - uses: actions/download-artifact@v4
+        with:
           name: mac-build
           path: mac
 
@@ -130,5 +141,6 @@ jobs:
         with:
           files: |
             windows/**/*
+            windows-unpacked/**/*
             mac/**/*
             linux/**/*
