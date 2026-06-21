@@ -101,10 +101,19 @@ def generate_script():
         log.info(f"原始返回数据: {result}")
         
         # 转换字段名：中文字段名 -> 英文字段名
+        shots = result.get('分镜列表', result.get('分镜', []))
+        
+        # 如果用户指定了镜头数量，对分镜列表进行截断兜底
+        original_shots_count = len(shots)
+        if shots_count and isinstance(shots_count, int) and shots_count > 0 and original_shots_count > shots_count:
+            log.warning(f"AI返回分镜数量({original_shots_count})超过限制({shots_count})，进行截断")
+            shots = shots[:shots_count]
+            log.info(f"截断后分镜数量: {len(shots)}")
+        
         transformed_result = {
             'synopsis': result.get('剧情简介和人物设定', {}).get('剧情简介', '') or result.get('剧情简介', ''),
             'characters': result.get('剧情简介和人物设定', {}).get('人物设定', '') or result.get('人物设定', ''),
-            'shots': result.get('分镜列表', result.get('分镜', []))
+            'shots': shots
         }
         log.info(f"转换后的数据: synopsis长度={len(transformed_result['synopsis'])}, shots数量={len(transformed_result['shots'])}")
         

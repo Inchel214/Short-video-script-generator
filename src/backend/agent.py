@@ -91,7 +91,7 @@ def build_messages(image_data_list, text_requirement, shots_count=None):
     # 构建镜头数量限制说明
     shots_limit_text = ""
     if shots_count and isinstance(shots_count, int) and shots_count > 0:
-        shots_limit_text = f"\n\n重要要求：请严格控制在 {shots_count} 个分镜以内，不要超出这个数量。"
+        shots_limit_text = f"""\n\n【硬性要求 - 必须遵守】\n你必须严格按照以下规则生成内容：\n1. 分镜列表必须且只能包含 {shots_count} 个分镜，绝对不能多也不能少\n2. 第 {shots_count} 个分镜必须是故事的结尾/收尾镜头\n3. 如果故事内容较多，请精简每个分镜的内容，而不是增加分镜数量\n4. 你返回的JSON中，"分镜列表"数组的长度必须等于 {shots_count}"""
         log.info(f"已设置分镜数量限制: {shots_count}")
     
     # 添加文字
@@ -106,7 +106,8 @@ def build_messages(image_data_list, text_requirement, shots_count=None):
 1. 剧本标题
 2. 总时长
 3. 剧情简介和人物设定
-4. 分镜列表（每个分镜包含：时长、景别、画面描述、运镜方式、旁白/对话、音效建议）{f'，严格控制在 {shots_count} 个分镜以内' if shots_count and isinstance(shots_count, int) and shots_count > 0 else ''}
+4. 分镜列表（每个分镜包含：时长、景别、画面描述、运镜方式、旁白/对话、音效建议）
+{f'【注意】分镜列表必须恰好包含 {shots_count} 个分镜，这是硬性要求。' if shots_count and isinstance(shots_count, int) and shots_count > 0 else ''}
 
 请用JSON格式返回结果。"""
         })
