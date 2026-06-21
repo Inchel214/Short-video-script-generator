@@ -72,6 +72,52 @@ jobs:
       - name: Build Electron app
         run: npx electron-builder --mac --publish=never
         
+      - name: Verify DMG structure
+        run: |
+          DMG_FILE=$(ls dist/*.dmg | head -n 1)
+          echo "DMG file: $DMG_FILE"
+          
+          # 检查 DMG 文件是否存在
+          if [ -f "$DMG_FILE" ]; then
+            echo "✅ DMG file exists"
+          else
+            echo "❌ DMG file not found"
+            exit 1
+          fi
+          
+          # 检查文件大小（至少 50MB）
+          FILE_SIZE=$(stat -f%z "$DMG_FILE")
+          if [ "$FILE_SIZE" -gt $((50 * 1024 * 1024)) ]; then
+            echo "✅ DMG size is $(($FILE_SIZE / 1024 / 1024)) MB (expected > 50MB)"
+          else
+            echo "❌ DMG size is too small: $(($FILE_SIZE / 1024 / 1024)) MB"
+            exit 1
+          fi
+          
+          # 尝试挂载并检查内容
+          mkdir -p /tmp/mnt
+          hdiutil attach "$DMG_FILE" -mountpoint /tmp/mnt -quiet
+          
+          if [ -d "/tmp/mnt/短视频剧本生成器.app" ]; then
+            echo "✅ .app bundle found"
+            
+            # 检查 Resources 目录是否包含 api
+            if [ -f "/tmp/mnt/短视频剧本生成器.app/Contents/Resources/api" ]; then
+              echo "✅ api binary found in Resources"
+            else
+              echo "❌ api binary not found in Resources"
+              hdiutil detach /tmp/mnt -quiet
+              exit 1
+            fi
+          else
+            echo "❌ .app bundle not found"
+            hdiutil detach /tmp/mnt -quiet
+            exit 1
+          fi
+          
+          hdiutil detach /tmp/mnt -quiet
+          echo "✅ All checks passed!"
+        
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -104,6 +150,52 @@ jobs:
         
       - name: Build Electron app
         run: npx electron-builder --mac --publish=never
+        
+      - name: Verify DMG structure
+        run: |
+          DMG_FILE=$(ls dist/*.dmg | head -n 1)
+          echo "DMG file: $DMG_FILE"
+          
+          # 检查 DMG 文件是否存在
+          if [ -f "$DMG_FILE" ]; then
+            echo "✅ DMG file exists"
+          else
+            echo "❌ DMG file not found"
+            exit 1
+          fi
+          
+          # 检查文件大小（至少 50MB）
+          FILE_SIZE=$(stat -f%z "$DMG_FILE")
+          if [ "$FILE_SIZE" -gt $((50 * 1024 * 1024)) ]; then
+            echo "✅ DMG size is $(($FILE_SIZE / 1024 / 1024)) MB (expected > 50MB)"
+          else
+            echo "❌ DMG size is too small: $(($FILE_SIZE / 1024 / 1024)) MB"
+            exit 1
+          fi
+          
+          # 尝试挂载并检查内容
+          mkdir -p /tmp/mnt
+          hdiutil attach "$DMG_FILE" -mountpoint /tmp/mnt -quiet
+          
+          if [ -d "/tmp/mnt/短视频剧本生成器.app" ]; then
+            echo "✅ .app bundle found"
+            
+            # 检查 Resources 目录是否包含 api
+            if [ -f "/tmp/mnt/短视频剧本生成器.app/Contents/Resources/api" ]; then
+              echo "✅ api binary found in Resources"
+            else
+              echo "❌ api binary not found in Resources"
+              hdiutil detach /tmp/mnt -quiet
+              exit 1
+            fi
+          else
+            echo "❌ .app bundle not found"
+            hdiutil detach /tmp/mnt -quiet
+            exit 1
+          fi
+          
+          hdiutil detach /tmp/mnt -quiet
+          echo "✅ All checks passed!"
         
       - name: Upload artifact
         uses: actions/upload-artifact@v4
