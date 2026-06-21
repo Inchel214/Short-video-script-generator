@@ -41,7 +41,7 @@
       {
         "from": "dist/",
         "to": ".",
-        "filter": ["api"]
+        "filter": ["api*"]
       }
     ],
     "win": {
