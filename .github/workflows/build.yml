@@ -1,0 +1,277 @@
+name: Build Multi-Platform
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyinstaller
+        
+      - name: Build Python backend
+        run: pyinstaller api.spec
+          
+      - name: Install Node dependencies
+        run: npm install
+          
+      - name: Build Electron app
+        run: npx electron-builder --win --publish=never
+        
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: dist/*.exe
+          
+      - name: Upload unpacked artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-unpacked
+          path: dist/win-unpacked/
+
+  build-mac-arm64:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyinstaller
+        
+      - name: Install Node dependencies
+        run: npm install
+        
+      - name: Build Python backend
+        run: pyinstaller api.spec
+        
+      - name: Build Electron app
+        run: npx electron-builder --mac --x64 --publish=never
+        
+      - name: Verify DMG structure
+        run: |
+          DMG_FILE=$(ls dist/*.dmg | head -n 1)
+          echo "DMG file: $DMG_FILE"
+          
+          # 检查 DMG 文件是否存在
+          if [ -f "$DMG_FILE" ]; then
+            echo "✅ DMG file exists"
+          else
+            echo "❌ DMG file not found"
+            exit 1
+          fi
+          
+          # 检查文件大小（至少 50MB）
+          FILE_SIZE=$(stat -f%z "$DMG_FILE")
+          if [ "$FILE_SIZE" -gt $((50 * 1024 * 1024)) ]; then
+            echo "✅ DMG size is $(($FILE_SIZE / 1024 / 1024)) MB (expected > 50MB)"
+          else
+            echo "❌ DMG size is too small: $(($FILE_SIZE / 1024 / 1024)) MB"
+            exit 1
+          fi
+          
+          # 尝试挂载并检查内容
+          mkdir -p /tmp/mnt
+          hdiutil attach "$DMG_FILE" -mountpoint /tmp/mnt -quiet
+          
+          if [ -d "/tmp/mnt/短视频剧本生成器.app" ]; then
+            echo "✅ .app bundle found"
+            
+            # 检查 Resources 目录是否包含 api
+            if [ -f "/tmp/mnt/短视频剧本生成器.app/Contents/Resources/api" ]; then
+              echo "✅ api binary found in Resources"
+            else
+              echo "❌ api binary not found in Resources"
+              hdiutil detach /tmp/mnt -quiet
+              exit 1
+            fi
+          else
+            echo "❌ .app bundle not found"
+            hdiutil detach /tmp/mnt -quiet
+            exit 1
+          fi
+          
+          hdiutil detach /tmp/mnt -quiet
+          echo "✅ All checks passed!"
+        
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-build-arm64
+          path: dist/*.dmg
+
+  build-mac-intel:
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyinstaller
+        
+      - name: Install Node dependencies
+        run: npm install
+        
+      - name: Build Python backend
+        run: pyinstaller api.spec
+        
+      - name: Build Electron app
+        run: npx electron-builder --mac --x64 --publish=never
+        
+      - name: Verify DMG structure
+        run: |
+          DMG_FILE=$(ls dist/*.dmg | head -n 1)
+          echo "DMG file: $DMG_FILE"
+          
+          # 检查 DMG 文件是否存在
+          if [ -f "$DMG_FILE" ]; then
+            echo "✅ DMG file exists"
+          else
+            echo "❌ DMG file not found"
+            exit 1
+          fi
+          
+          # 检查文件大小（至少 50MB）
+          FILE_SIZE=$(stat -f%z "$DMG_FILE")
+          if [ "$FILE_SIZE" -gt $((50 * 1024 * 1024)) ]; then
+            echo "✅ DMG size is $(($FILE_SIZE / 1024 / 1024)) MB (expected > 50MB)"
+          else
+            echo "❌ DMG size is too small: $(($FILE_SIZE / 1024 / 1024)) MB"
+            exit 1
+          fi
+          
+          # 尝试挂载并检查内容
+          mkdir -p /tmp/mnt
+          hdiutil attach "$DMG_FILE" -mountpoint /tmp/mnt -quiet
+          
+          if [ -d "/tmp/mnt/短视频剧本生成器.app" ]; then
+            echo "✅ .app bundle found"
+            
+            # 检查 Resources 目录是否包含 api
+            if [ -f "/tmp/mnt/短视频剧本生成器.app/Contents/Resources/api" ]; then
+              echo "✅ api binary found in Resources"
+            else
+              echo "❌ api binary not found in Resources"
+              hdiutil detach /tmp/mnt -quiet
+              exit 1
+            fi
+          else
+            echo "❌ .app bundle not found"
+            hdiutil detach /tmp/mnt -quiet
+            exit 1
+          fi
+          
+          hdiutil detach /tmp/mnt -quiet
+          echo "✅ All checks passed!"
+        
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-build-intel
+          path: dist/*.dmg
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyinstaller
+        
+      - name: Build Python backend
+        run: pyinstaller api.spec
+          
+      - name: Install Node dependencies
+        run: npm install
+        
+      - name: Build Electron app
+        run: npx electron-builder --linux --publish=never
+        
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: dist/*.AppImage
+
+  release:
+    needs: [build-windows, build-mac-arm64, build-mac-intel, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          path: windows
+          
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-build-unpacked
+          path: windows-unpacked
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: mac-build-arm64
+          path: mac-arm64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: mac-build-intel
+          path: mac-intel
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-build
+          path: linux
+          
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            windows/**/*
+            windows-unpacked/**/*
+            mac-arm64/**/*
+            mac-intel/**/*
+            linux/**/*
