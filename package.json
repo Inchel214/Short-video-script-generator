@@ -57,10 +57,7 @@
     },
     "mac": {
       "target": [
-        {
-          "target": "dmg",
-          "arch": ["x64"]
-        }
+        "dmg"
       ],
       "icon": "build/icon.icns"
     },
