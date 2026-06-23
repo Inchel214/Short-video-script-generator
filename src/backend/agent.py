@@ -170,12 +170,23 @@ def generate_script(image_data_list, text_requirement, api_key='', model_name='d
         log.debug(f"API响应内容长度: {len(str(result))} 字符")
         
         if "error" in result:
-            error_msg = result["error"].get("message", "API调用失败")
+            err = result["error"]
+            if isinstance(err, dict):
+                error_msg = err.get("message", "API调用失败")
+            else:
+                error_msg = str(err)
             log.error(f"API返回错误: {error_msg}")
             return {"error": error_msg}
         
+        if not isinstance(result, dict) or "choices" not in result or not result["choices"]:
+            log.error("API返回格式异常，缺少choices")
+            return {"error": "API返回格式异常，请稍后重试"}
+
         # 提取回复内容
-        content = result["choices"][0]["message"]["content"]
+        content = result["choices"][0].get("message", {}).get("content")
+        if content is None:
+            log.error("API未返回可用内容")
+            return {"error": "API未返回可用内容，请检查模型和请求参数"}
         log.info(f"API调用成功，回复内容长度: {len(content)} 字符")
         
         # 保存到对话历史
