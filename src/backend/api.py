@@ -119,10 +119,9 @@ def generate_script():
         log.info("剧本生成成功，即将返回给前端")
         log.info(f"原始返回数据: {result}")
         
-        # 转换字段名：中文字段名 -> 英文字段名
-        shots = result.get('分镜列表', result.get('分镜', []))
+        # 转换字段名：支持中英文键名
+        shots = result.get('shots', result.get('分镜列表', result.get('分镜', [])))
         
-        # 如果用户指定了镜头数量，对分镜列表进行截断兜底
         original_shots_count = len(shots)
         log.info(f"DEBUG: 截断检查 - shots_count={shots_count}, type={type(shots_count)}, original_shots_count={original_shots_count}")
         log.info(f"DEBUG: 截断条件判断 - shots_count truthy={bool(shots_count)}, is_int={isinstance(shots_count, int)}, shots_count>0={shots_count > 0 if isinstance(shots_count, (int, float)) else 'N/A'}, original>shots={original_shots_count > shots_count if isinstance(shots_count, (int, float)) else 'N/A'}")
@@ -135,8 +134,8 @@ def generate_script():
             log.info(f"DEBUG: 截断条件不满足，不执行截断")
         
         transformed_result = {
-            'synopsis': result.get('剧情简介和人物设定', {}).get('剧情简介', '') or result.get('剧情简介', ''),
-            'characters': result.get('剧情简介和人物设定', {}).get('人物设定', '') or result.get('人物设定', ''),
+            'synopsis': result.get('synopsis', '') or result.get('剧情简介和人物设定', {}).get('剧情简介', '') or result.get('剧情简介', ''),
+            'characters': result.get('characters', '') or result.get('剧情简介和人物设定', {}).get('人物设定', '') or result.get('人物设定', ''),
             'shots': shots
         }
         log.info(f"转换后的数据: synopsis长度={len(transformed_result['synopsis'])}, shots数量={len(transformed_result['shots'])}")
@@ -172,6 +171,28 @@ def clear_history():
         })
     except Exception as e:
         log.error(f"清空对话历史失败：{str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/stop', methods=['POST'])
+def stop_generation():
+    """
+    停止当前生成任务
+    """
+    log.info("接收到停止生成请求")
+    
+    try:
+        result = agent.cancel_generation()
+        log.info("已请求停止生成")
+        return jsonify({
+            'success': True,
+            'message': '已请求停止生成'
+        })
+    except Exception as e:
+        log.error(f"停止生成失败：{str(e)}", exc_info=True)
         return jsonify({
             'success': False,
             'error': str(e)

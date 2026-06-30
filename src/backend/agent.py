@@ -5,6 +5,8 @@ Agent 核心逻辑
 import base64
 import requests
 import os
+import json
+import re
 from . import logger
 
 # 获取日志记录器
@@ -12,6 +14,9 @@ log = logger.setup_logger()
 
 # 对话历史管理
 conversation_history = []
+
+# 生成取消标志
+_cancel_requested = False
 
 
 def encode_image_from_base64(image_base64):
@@ -131,11 +136,12 @@ def generate_script(image_data_list, text_requirement, api_key='', model_name='d
     Returns:
         dict: 包含结构化结果或错误信息
     """
-    global conversation_history
+    global conversation_history, _cancel_requested
     log.info(f"开始生成剧本，图片数量: {len(image_data_list) if image_data_list else 0}")
     log.debug(f"用户要求: {text_requirement[:50]}..." if text_requirement else "无用户文字要求")
     
-    # 使用用户提供的密钥，或从环境变量获取
+    _cancel_requested = False
+    
     api_key = api_key or os.getenv("ARK_API_KEY")
     base_url = os.getenv("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
     
@@ -159,51 +165,67 @@ def generate_script(image_data_list, text_requirement, api_key='', model_name='d
             json={
                 "model": model_name,
                 "messages": messages,
-                "temperature": 0.7
+                "temperature": 0.7,
+                "stream": True
             },
-            timeout=120
+            timeout=120,
+            stream=True
         )
         
         log.debug(f"API响应状态码: {response.status_code}")
         
-        result = response.json()
-        log.debug(f"API响应内容长度: {len(str(result))} 字符")
-        
-        if "error" in result:
-            err = result["error"]
-            if isinstance(err, dict):
-                error_msg = err.get("message", "API调用失败")
+        if response.status_code != 200:
+            result = response.json()
+            if "error" in result:
+                err = result["error"]
+                error_msg = err.get("message", "API调用失败") if isinstance(err, dict) else str(err)
             else:
-                error_msg = str(err)
+                error_msg = f"API调用失败，状态码: {response.status_code}"
             log.error(f"API返回错误: {error_msg}")
             return {"error": error_msg}
         
-        if not isinstance(result, dict) or "choices" not in result or not result["choices"]:
-            log.error("API返回格式异常，缺少choices")
-            return {"error": "API返回格式异常，请稍后重试"}
-
-        # 提取回复内容
-        content = result["choices"][0].get("message", {}).get("content")
-        if content is None:
+        content = ""
+        for chunk in response.iter_content(chunk_size=1024, decode_unicode=True):
+            if _cancel_requested:
+                log.info("检测到取消请求，停止接收响应")
+                response.close()
+                return {"error": "生成已停止"}
+            
+            if chunk:
+                for line in chunk.split('\n'):
+                    line = line.strip()
+                    if line.startswith('data: '):
+                        line = line[6:]
+                        if line == '[DONE]':
+                            break
+                        try:
+                            data = json.loads(line)
+                            delta = data.get('choices', [{}])[0].get('delta', {})
+                            if 'content' in delta:
+                                content += delta['content']
+                        except json.JSONDecodeError:
+                            continue
+        
+        if _cancel_requested:
+            log.info("检测到取消请求")
+            return {"error": "生成已停止"}
+        
+        if not content:
             log.error("API未返回可用内容")
             return {"error": "API未返回可用内容，请检查模型和请求参数"}
         log.info(f"API调用成功，回复内容长度: {len(content)} 字符")
         
-        # 保存到对话历史
         conversation_history.append({"role": "user", "content": text_requirement or "请分析图片"})
         conversation_history.append({"role": "assistant", "content": content})
         log.debug(f"对话历史已更新，当前长度: {len(conversation_history)}")
         
-        # 打印原始返回内容
         log.info(f"大模型原始返回内容: {content[:500]}...")
         
-        # 解析 JSON 并返回结构化数据
         parsed_result = parse_script_content(content)
         log.info(f"解析后的结果: {parsed_result}")
         
         if "error" in parsed_result:
             return parsed_result
-        # 返回解析后的数据
         return parsed_result
     
     except requests.exceptions.Timeout:
@@ -230,8 +252,15 @@ def clear_history():
     return {"message": "对话历史已清空"}
 
 
-import json
-import re
+def cancel_generation():
+    """
+    请求取消当前生成任务
+    """
+    global _cancel_requested
+    log.info("收到取消生成请求")
+    _cancel_requested = True
+    return {"message": "已请求停止生成"}
+
 
 def parse_script_content(content):
     """

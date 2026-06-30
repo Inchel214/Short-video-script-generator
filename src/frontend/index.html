@@ -70,10 +70,24 @@
                 <div class="config-section">
                     <h3>API 配置</h3>
                     <div class="config-item">
-                        <label for="api-key">API密钥</label>
+                        <label for="api-key">
+                            API密钥
+                            <button type="button" class="toggle-password-btn" id="toggle-api-key-visibility" aria-label="切换 API 密钥显示" aria-pressed="false">
+                                <svg class="eye-icon eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                <svg class="eye-icon eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M2 12 Q7 16 12 16 Q17 16 22 12"></path>
+                                    <line x1="6" y1="16" x2="6" y2="19"></line>
+                                    <line x1="10" y1="17" x2="10" y2="20"></line>
+                                    <line x1="14" y1="17" x2="14" y2="20"></line>
+                                    <line x1="18" y1="16" x2="18" y2="19"></line>
+                                </svg>
+                            </button>
+                        </label>
                         <div class="input-with-toggle">
-                            <input type="password" id="api-key" placeholder="输入火山引擎API密钥，如：ark-xxx...">
-                            <button type="button" class="toggle-password-btn" id="toggle-api-key-visibility" aria-label="切换 API 密钥显示" aria-pressed="false">显示</button>
+                            <input type="password" id="api-key" placeholder="输入火山引擎API密钥">
                         </div>
                     </div>
                     <div class="config-item">
@@ -117,8 +131,8 @@
                 <!-- 生成按钮 -->
                 <div class="action-section">
                     <button class="btn-generate" id="generate-btn">
-                        <span>✨</span>
-                        <span>去生成</span>
+                        <span class="generate-icon">✨</span>
+                        <span class="generate-text">去生成</span>
                     </button>
                 </div>
             </div>

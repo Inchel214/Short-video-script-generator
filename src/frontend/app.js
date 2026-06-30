@@ -12,7 +12,8 @@ const state = {
     isGenerating: false, // 是否正在生成
     currentStep: 1,       // 当前步骤
     synopsisExpanded: false,
-    lastResult: null      // 上次生成的结果，用于页面切换时恢复
+    lastResult: null,     // 上次生成的结果，用于页面切换时恢复
+    abortController: null // 用于取消请求的控制器
 };
 
 // 从 localStorage 恢复数据
@@ -132,7 +133,13 @@ function setupEventListeners() {
     elements.clearImagesBtn.addEventListener('click', clearImages);
     
     // 生成剧本
-    elements.generateBtn.addEventListener('click', generateScript);
+    elements.generateBtn.addEventListener('click', () => {
+        if (state.isGenerating) {
+            stopGeneration();
+        } else {
+            generateScript();
+        }
+    });
     
     // 清空历史
     elements.clearHistoryBtn.addEventListener('click', clearHistory);
@@ -171,7 +178,6 @@ function toggleApiKeyVisibility() {
 
     const isPassword = elements.apiKeyInput.type === 'password';
     elements.apiKeyInput.type = isPassword ? 'text' : 'password';
-    elements.apiKeyToggleBtn.textContent = isPassword ? '隐藏' : '显示';
     elements.apiKeyToggleBtn.setAttribute('aria-pressed', String(isPassword));
 }
 
@@ -324,12 +330,6 @@ function clearImages() {
  * 生成剧本
  */
 async function generateScript() {
-    // 防止重复点击
-    if (state.isGenerating) {
-        console.warn('正在生成中，请稍候...');
-        return;
-    }
-
     // 收集参数
     const apiKey = elements.apiKeyInput.value.trim();
     const modelName = elements.modelNameInput.value.trim();
@@ -357,8 +357,10 @@ async function generateScript() {
 
     // 开始生成
     state.isGenerating = true;
+    state.abortController = new AbortController();
     saveConfig();
     showLoading();
+    updateGenerateBtnState();
 
     // 步骤2：分析中
     setStep(2);
@@ -387,37 +389,84 @@ async function generateScript() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(requestBody),
+            signal: state.abortController.signal
         });
 
         const data = await response.json();
-        console.log('API 响应:', data);
+        console.log('API 响应:', JSON.stringify(data, null, 2));
 
         if (data.success) {
-            // 步骤3：确认规划
+            console.log('响应成功，result:', JSON.stringify(data.result, null, 2));
+            
             setStep(3);
-
-            // 模拟生成过程延迟
             await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // 步骤4：生成中
             setStep(4);
-
-            // 模拟生成过程延迟
             await new Promise(resolve => setTimeout(resolve, 1500));
-
-            // 显示结果，步骤5：完成
+            
             displayResult(data.result);
         } else {
             throw new Error(data.error || '生成失败');
         }
 
     } catch (error) {
-        console.error('生成剧本失败:', error);
-        showError(error.message || '网络错误，请检查后端服务是否启动');
+        if (error.name === 'AbortError') {
+            console.log('生成已被取消');
+            showError('生成已停止');
+        } else {
+            console.error('生成剧本失败:', error);
+            showError(error.message || '网络错误，请检查后端服务是否启动');
+        }
     } finally {
         state.isGenerating = false;
+        state.abortController = null;
         hideLoading();
+        updateGenerateBtnState();
+    }
+}
+
+/**
+ * 停止生成
+ */
+async function stopGeneration() {
+    console.log('停止生成');
+    
+    if (state.abortController) {
+        state.abortController.abort();
+    }
+    
+    try {
+        await fetch(`${API_BASE_URL}/stop`, {
+            method: 'POST'
+        });
+    } catch (error) {
+        console.log('通知后端停止失败:', error);
+    }
+}
+
+/**
+ * 更新生成按钮状态
+ */
+function updateGenerateBtnState() {
+    const generateIcon = elements.generateBtn.querySelector('.generate-icon');
+    const generateText = elements.generateBtn.querySelector('.generate-text');
+    
+    if (state.isGenerating) {
+        elements.generateBtn.classList.add('stop-mode');
+        if (generateIcon) {
+            generateIcon.innerHTML = '■';
+        }
+        if (generateText) {
+            generateText.textContent = '停止生成';
+        }
+    } else {
+        elements.generateBtn.classList.remove('stop-mode');
+        if (generateIcon) {
+            generateIcon.innerHTML = '✨';
+        }
+        if (generateText) {
+            generateText.textContent = '去生成';
+        }
     }
 }
 
@@ -428,7 +477,6 @@ function showLoading() {
     elements.loadingSection.style.display = 'flex';
     elements.resultSection.style.display = 'none';
     elements.errorSection.style.display = 'none';
-    elements.generateBtn.disabled = true;
 }
 
 /**
@@ -486,22 +534,24 @@ function setStep(step) {
  * 显示结果
  */
 function displayResult(result) {
-    console.log('显示结果:', result);
+    console.log('displayResult - 原始result:', JSON.stringify(result, null, 2));
+    console.log('displayResult - synopsis:', result.synopsis);
+    console.log('displayResult - characters:', result.characters);
+    console.log('displayResult - shots:', result.shots);
+    console.log('displayResult - shots length:', result.shots ? result.shots.length : 'undefined');
     
-    // 保存结果，用于页面切换时恢复
     state.lastResult = result;
-    // 保存到 localStorage 作为兜底
     saveStateToStorage();
     
-    // 确保显示结果区域
     elements.resultSection.style.display = 'block';
     elements.errorSection.style.display = 'none';
     
-    // 处理中文字段名映射
     const synopsis = result.synopsis || result['剧情简介'] || '';
-    let characters = result.characters || result['人物小传'] || result['人物设定'] || '';
+    console.log('处理后 synopsis:', synopsis);
     
-    // 如果人物设定是对象，转换为字符串
+    let characters = result.characters || result['人物小传'] || result['人物设定'] || '';
+    console.log('处理后 characters:', characters);
+    
     if (typeof characters === 'object') {
         let charsStr = '';
         for (const [name, desc] of Object.entries(characters)) {
@@ -512,8 +562,9 @@ function displayResult(result) {
     }
     
     const shots = result.shots || result['分镜列表'] || result['分镜'] || [];
+    console.log('处理后 shots:', shots);
+    console.log('处理后 shots length:', shots.length);
     
-    // 合并显示剧情简介和人物小传
     let content = '';
     if (synopsis) {
         content += synopsis;
@@ -522,6 +573,9 @@ function displayResult(result) {
         if (content) content += '\n\n';
         content += characters;
     }
+    console.log('最终 content:', content);
+    console.log('content length:', content.length);
+    
     if (content) {
         elements.synopsisSection.innerHTML = '<div class="merged-content">' + content + '</div>';
     } else {
