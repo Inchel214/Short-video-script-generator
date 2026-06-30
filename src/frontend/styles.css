@@ -652,20 +652,54 @@ textarea:focus {
     line-height: 1.8;
 }
 
-/* 清空历史按钮 */
+/* 操作按钮区域 */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+.btn-export {
+    flex: 2;
+    padding: 14px 24px;
+    background: #222222;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.2s ease, transform 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-export:hover {
+    background: #333333;
+}
+
+.btn-export:active {
+    transform: scale(0.98);
+}
+
 .btn-clear-history {
-    width: 100%;
-    padding: 12px;
-    background: #f3f1ec;
+    flex: 1;
+    padding: 14px 16px;
+    background: transparent;
+    color: #7a7871;
     border: 1px solid #e5e3dc;
     border-radius: 8px;
     cursor: pointer;
     font-size: 14px;
-    margin-top: 20px;
+    transition: all 0.2s ease;
 }
 
 .btn-clear-history:hover {
-    background: #e5e3dc;
+    background: #f3f1ec;
+    border-color: #d4d2cc;
+    color: #4a4a4a;
 }
 
 /* 错误提示 */

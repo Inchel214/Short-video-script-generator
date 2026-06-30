@@ -59,6 +59,7 @@ const elements = {
     generateBtn: document.getElementById('generate-btn'),
     clearHistoryBtn: document.getElementById('clear-history'),
     retryBtn: document.getElementById('retry-btn'),
+    exportBtn: document.getElementById('export-btn'),
     
     // 结果
     loadingSection: document.getElementById('loading'),
@@ -149,6 +150,9 @@ function setupEventListeners() {
         hideError();
         generateScript();
     });
+    
+    // 导出剧本
+    elements.exportBtn.addEventListener('click', exportScript);
 }
 
 /**
@@ -809,6 +813,88 @@ async function clearHistory() {
         console.error('清空历史失败:', error);
         alert('清空失败: ' + error.message);
     }
+}
+
+/**
+ * 导出剧本为 TXT 文件
+ */
+function exportScript() {
+    if (!state.lastResult) {
+        alert('没有可导出的剧本，请先生成剧本');
+        return;
+    }
+    
+    const result = state.lastResult;
+    const synopsis = result.synopsis || '';
+    const characters = result.characters || '';
+    const shots = result.shots || [];
+    
+    let content = '';
+    const timestamp = new Date().toLocaleString('zh-CN');
+    
+    content += '========================================\n';
+    content += '          短视频剧本\n';
+    content += '========================================\n';
+    content += `生成时间: ${timestamp}\n`;
+    content += '========================================\n\n';
+    
+    if (synopsis) {
+        content += '【剧情简介】\n';
+        content += synopsis + '\n\n';
+    }
+    
+    if (characters) {
+        content += '【人物设定】\n';
+        content += characters + '\n\n';
+    }
+    
+    content += '【分镜剧本】\n';
+    content += '========================================\n';
+    
+    if (shots.length > 0) {
+        shots.forEach((shot, index) => {
+            const number = index + 1;
+            const title = shot.title || shot['画面描述']?.substring(0, 20) || `分镜 ${number}`;
+            const description = shot.description || shot['画面描述'] || '';
+            const dialogue = shot['旁白/对话'] || '';
+            const soundEffect = shot['音效建议'] || '';
+            
+            content += `\n第 ${number} 镜\n`;
+            content += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+            content += `标题：${title}\n`;
+            
+            if (description) {
+                content += `画面描述：\n${description}\n`;
+            }
+            
+            if (dialogue) {
+                content += `旁白/对话：\n${dialogue}\n`;
+            }
+            
+            if (soundEffect) {
+                content += `音效建议：\n${soundEffect}\n`;
+            }
+        });
+    } else {
+        content += '暂无分镜内容\n';
+    }
+    
+    content += '\n========================================\n';
+    content += '                    结束\n';
+    content += '========================================\n';
+    
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `短视频剧本_${new Date().getTime()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    console.log('剧本导出成功');
 }
 
 // 启动应用
