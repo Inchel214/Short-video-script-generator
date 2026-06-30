@@ -39,6 +39,7 @@ function saveStateToStorage() {
 const elements = {
     // 配置
     apiKeyInput: document.getElementById('api-key'),
+    apiKeyToggleBtn: document.getElementById('toggle-api-key-visibility'),
     modelNameInput: document.getElementById('model-name'),
     
     // 上传
@@ -122,6 +123,11 @@ function setupEventListeners() {
         }
     });
     
+    // 切换 API 密钥显示
+    if (elements.apiKeyToggleBtn) {
+        elements.apiKeyToggleBtn.addEventListener('click', toggleApiKeyVisibility);
+    }
+
     // 清空图片
     elements.clearImagesBtn.addEventListener('click', clearImages);
     
@@ -153,6 +159,20 @@ function loadConfig() {
     if (savedModelName) {
         elements.modelNameInput.value = savedModelName;
     }
+}
+
+/**
+ * 切换 API 密钥显示状态
+ */
+function toggleApiKeyVisibility() {
+    if (!elements.apiKeyInput || !elements.apiKeyToggleBtn) {
+        return;
+    }
+
+    const isPassword = elements.apiKeyInput.type === 'password';
+    elements.apiKeyInput.type = isPassword ? 'text' : 'password';
+    elements.apiKeyToggleBtn.textContent = isPassword ? '隐藏' : '显示';
+    elements.apiKeyToggleBtn.setAttribute('aria-pressed', String(isPassword));
 }
 
 /**

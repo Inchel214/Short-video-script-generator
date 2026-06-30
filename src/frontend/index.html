@@ -71,7 +71,10 @@
                     <h3>API 配置</h3>
                     <div class="config-item">
                         <label for="api-key">API密钥</label>
-                        <input type="password" id="api-key" placeholder="输入火山引擎API密钥，如：ark-xxx...">
+                        <div class="input-with-toggle">
+                            <input type="password" id="api-key" placeholder="输入火山引擎API密钥，如：ark-xxx...">
+                            <button type="button" class="toggle-password-btn" id="toggle-api-key-visibility" aria-label="切换 API 密钥显示" aria-pressed="false">显示</button>
+                        </div>
                     </div>
                     <div class="config-item">
                         <label for="model-name">模型名称</label>
