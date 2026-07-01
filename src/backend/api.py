@@ -6,6 +6,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from src.backend import agent
 from src.backend import logger
+import json
 import os
 
 # 创建 Flask 应用
@@ -120,22 +121,85 @@ def generate_script():
         log.info(f"原始返回数据: {result}")
         
         # 转换字段名：支持中英文键名
+        def try_parse_json_value(value):
+            if isinstance(value, str):
+                raw = value.strip()
+                if raw.startswith('```'):
+                    raw = raw.strip('`')
+                    if raw.startswith('json'):
+                        raw = raw[4:].strip()
+                try:
+                    return json.loads(raw)
+                except Exception:
+                    return value
+            return value
+
+        parsed_result = try_parse_json_value(result)
+        if isinstance(parsed_result, dict):
+            result = parsed_result
+
         shots = result.get('shots', result.get('分镜列表', result.get('分镜', [])))
-        
+        shots = try_parse_json_value(shots)
+        if not isinstance(shots, list):
+            shots = []
+
+        normalized_shots = []
+        for idx, shot in enumerate(shots):
+            if not isinstance(shot, dict):
+                continue
+            normalized_shots.append({
+                'id': shot.get('id', idx + 1),
+                'title': shot.get('title', shot.get('标题', '')),
+                'description': shot.get('description', shot.get('画面描述', '')),
+                '时长': shot.get('时长', shot.get('duration', '')),
+                '景别': shot.get('景别', shot.get('scene', '')),
+                '画面描述': shot.get('画面描述', shot.get('description', '')),
+                '运镜方式': shot.get('运镜方式', shot.get('camera', '')),
+                '旁白/对话': shot.get('旁白/对话', shot.get('dialogue', '')),
+                '音效建议': shot.get('音效建议', shot.get('soundEffect', '')),
+                'expanded': shot.get('expanded', True)
+            })
+        shots = normalized_shots
+
         original_shots_count = len(shots)
         log.info(f"DEBUG: 截断检查 - shots_count={shots_count}, type={type(shots_count)}, original_shots_count={original_shots_count}")
         log.info(f"DEBUG: 截断条件判断 - shots_count truthy={bool(shots_count)}, is_int={isinstance(shots_count, int)}, shots_count>0={shots_count > 0 if isinstance(shots_count, (int, float)) else 'N/A'}, original>shots={original_shots_count > shots_count if isinstance(shots_count, (int, float)) else 'N/A'}")
         
-        if shots_count and isinstance(shots_count, int) and shots_count > 0 and original_shots_count > shots_count:
-            log.warning(f"AI返回分镜数量({original_shots_count})超过限制({shots_count})，进行截断")
-            shots = shots[:shots_count]
-            log.info(f"截断后分镜数量: {len(shots)}")
+        if shots_count and isinstance(shots_count, int) and shots_count > 0:
+            if original_shots_count > shots_count:
+                log.warning(f"AI返回分镜数量({original_shots_count})超过限制({shots_count})，进行截断")
+                shots = shots[:shots_count]
+            elif original_shots_count < shots_count:
+                log.warning(f"AI返回分镜数量({original_shots_count})不足限制({shots_count})，进行补足")
+                while len(shots) < shots_count:
+                    shots.append({
+                        'id': len(shots) + 1,
+                        'title': f'补充分镜 {len(shots) + 1}',
+                        'description': '根据要求补充的镜头内容。',
+                        '时长': '',
+                        '景别': '',
+                        '画面描述': '根据要求补充的镜头内容。',
+                        '运镜方式': '',
+                        '旁白/对话': '',
+                        '音效建议': '',
+                        'expanded': True
+                    })
+            log.info(f"截断/补足后分镜数量: {len(shots)}")
         else:
             log.info(f"DEBUG: 截断条件不满足，不执行截断")
         
+        synopsis_value = result.get('synopsis', '') or result.get('剧情简介', '') or result.get('剧情简介和人物设定', {}).get('剧情简介', '')
+        characters_value = result.get('characters', '') or result.get('人物设定', '') or result.get('剧情简介和人物设定', {}).get('人物设定', '')
+        synopsis_value = try_parse_json_value(synopsis_value)
+        if isinstance(synopsis_value, dict):
+            synopsis_value = synopsis_value.get('剧情简介', '') or synopsis_value.get('synopsis', '')
+        characters_value = try_parse_json_value(characters_value)
+        if isinstance(characters_value, dict):
+            characters_value = '\n'.join([f'{name}：{desc}' for name, desc in characters_value.items()])
+        
         transformed_result = {
-            'synopsis': result.get('synopsis', '') or result.get('剧情简介和人物设定', {}).get('剧情简介', '') or result.get('剧情简介', ''),
-            'characters': result.get('characters', '') or result.get('剧情简介和人物设定', {}).get('人物设定', '') or result.get('人物设定', ''),
+            'synopsis': synopsis_value,
+            'characters': characters_value,
             'shots': shots
         }
         log.info(f"转换后的数据: synopsis长度={len(transformed_result['synopsis'])}, shots数量={len(transformed_result['shots'])}")

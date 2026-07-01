@@ -537,38 +537,93 @@ function setStep(step) {
 /**
  * 显示结果
  */
+function tryParseJsonString(value) {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    if (!trimmed) return value;
+    if (trimmed.startsWith('```')) {
+        const cleaned = trimmed.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+        return tryParseJsonString(cleaned);
+    }
+    try {
+        return JSON.parse(trimmed);
+    } catch (e) {
+        return value;
+    }
+}
+
+function normalizeResult(result) {
+    const normalized = { ...result };
+
+    const synopsisCandidate = normalized.synopsis ?? normalized['剧情简介'] ?? normalized['剧情简介和人物设定'] ?? '';
+    normalized.synopsis = tryParseJsonString(synopsisCandidate);
+    if (typeof normalized.synopsis === 'object' && normalized.synopsis !== null) {
+        normalized.synopsis = normalized.synopsis['剧情简介'] || normalized.synopsis['synopsis'] || '';
+    }
+
+    const charactersCandidate = normalized.characters ?? normalized['人物设定'] ?? normalized['人物小传'] ?? '';
+    normalized.characters = tryParseJsonString(charactersCandidate);
+    if (typeof normalized.characters === 'object' && normalized.characters !== null && !Array.isArray(normalized.characters)) {
+        const charsStr = Object.entries(normalized.characters).map(([name, desc]) => `${name}：${desc}`).join('\n');
+        normalized.characters = charsStr;
+    }
+
+    const shotsCandidate = normalized.shots ?? normalized['分镜列表'] ?? normalized['分镜'] ?? [];
+    normalized.shots = tryParseJsonString(shotsCandidate);
+    if (!Array.isArray(normalized.shots)) {
+        normalized.shots = [];
+    }
+
+    normalized.shots = normalized.shots.map((shot, index) => {
+        if (shot && typeof shot === 'object') {
+            return {
+                id: shot.id ?? index + 1,
+                title: shot.title ?? shot['标题'] ?? '',
+                description: shot.description ?? shot['画面描述'] ?? shot['description'] ?? '',
+                duration: shot.duration ?? shot['时长'] ?? '',
+                scene: shot.scene ?? shot['景别'] ?? '',
+                camera: shot.camera ?? shot['运镜方式'] ?? '',
+                dialogue: shot.dialogue ?? shot['旁白/对话'] ?? '',
+                soundEffect: shot.soundEffect ?? shot['音效建议'] ?? '',
+                expanded: typeof shot.expanded === 'boolean' ? shot.expanded : true,
+                '画面描述': shot['画面描述'] ?? shot.description ?? shot['description'] ?? '',
+                '运镜方式': shot['运镜方式'] ?? shot.camera ?? '',
+                '旁白/对话': shot['旁白/对话'] ?? shot.dialogue ?? '',
+                '音效建议': shot['音效建议'] ?? shot.soundEffect ?? '',
+                '时长': shot['时长'] ?? shot.duration ?? '',
+                '景别': shot['景别'] ?? shot.scene ?? ''
+            };
+        }
+        return shot;
+    });
+
+    return normalized;
+}
+
 function displayResult(result) {
+    const normalizedResult = normalizeResult(result);
+
     console.log('displayResult - 原始result:', JSON.stringify(result, null, 2));
-    console.log('displayResult - synopsis:', result.synopsis);
-    console.log('displayResult - characters:', result.characters);
-    console.log('displayResult - shots:', result.shots);
-    console.log('displayResult - shots length:', result.shots ? result.shots.length : 'undefined');
+    console.log('displayResult - synopsis:', normalizedResult.synopsis);
+    console.log('displayResult - characters:', normalizedResult.characters);
+    console.log('displayResult - shots:', normalizedResult.shots);
+    console.log('displayResult - shots length:', normalizedResult.shots ? normalizedResult.shots.length : 'undefined');
     
-    state.lastResult = result;
+    state.lastResult = normalizedResult;
     saveStateToStorage();
     
     elements.resultSection.style.display = 'block';
     elements.errorSection.style.display = 'none';
     
-    const synopsis = result.synopsis || result['剧情简介'] || '';
+    const synopsis = normalizedResult.synopsis || '';
     console.log('处理后 synopsis:', synopsis);
     
-    let characters = result.characters || result['人物小传'] || result['人物设定'] || '';
+    let characters = normalizedResult.characters || '';
     console.log('处理后 characters:', characters);
     
-    if (typeof characters === 'object') {
-        let charsStr = '';
-        for (const [name, desc] of Object.entries(characters)) {
-            if (charsStr) charsStr += '\n';
-            charsStr += `${name}：${desc}`;
-        }
-        characters = charsStr;
-    }
-    
-    const shots = result.shots || result['分镜列表'] || result['分镜'] || [];
+    const shots = normalizedResult.shots || [];
     console.log('处理后 shots:', shots);
-    console.log('处理后 shots length:', shots.length);
-    
+    console.log('处理后 shots length:', shots.length);    
     let content = '';
     if (synopsis) {
         content += synopsis;
@@ -632,15 +687,23 @@ function createShotItem(shot, index) {
     shotEl.dataset.id = shot.id || index + 1;
     
     const number = index + 1;
-    // 支持中英文字段名
-    const title = shot.title || shot['画面描述']?.substring(0, 20) || `分镜 ${number}`;
-    // 组合完整描述信息
+    const duration = shot['时长'] || shot.duration || '';
+    const scene = shot['景别'] || shot.scene || '';
+    const description = shot['画面描述'] || shot.description || shot['description'] || '';
+    const camera = shot['运镜方式'] || shot.camera || '';
+    const dialogue = shot['旁白/对话'] || shot.dialogue || '';
+    const soundEffect = shot['音效建议'] || shot.soundEffect || '';
+    
+    const title = shot.title || shot['标题'] || (description ? description.substring(0, 20) : `分镜 ${number}`);
     const fullDescription = [
-        shot['画面描述'] || shot.description || '',
-        shot['旁白/对话'] ? `\n\n旁白/对话：${shot['旁白/对话']}` : '',
-        shot['音效建议'] ? `\n\n音效建议：${shot['音效建议']}` : ''
-    ].filter(Boolean).join('');
-    const description = fullDescription || '';
+        duration ? `时长：${duration}` : '',
+        scene ? `景别：${scene}` : '',
+        description ? `\n\n画面描述：\n${description}` : '',
+        camera ? `\n\n运镜方式：${camera}` : '',
+        dialogue ? `\n\n旁白/对话：${dialogue}` : '',
+        soundEffect ? `\n\n音效建议：${soundEffect}` : ''
+    ].filter(Boolean).join('\n\n');
+    const descriptionText = fullDescription || '';
     const isExpanded = true; // 默认展开
     
     // 编辑图标
@@ -665,7 +728,7 @@ function createShotItem(shot, index) {
             </div>
         </div>
         <div class="shot-item-content ${isExpanded ? 'expanded' : ''}">
-            <textarea class="shot-description-input" placeholder="请输入分镜描述...">${escapeHtml(description)}</textarea>
+            <textarea class="shot-description-input" placeholder="请输入分镜描述...">${escapeHtml(descriptionText)}</textarea>
         </div>
     `;
     

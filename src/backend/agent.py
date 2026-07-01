@@ -107,14 +107,33 @@ def build_messages(image_data_list, text_requirement, shots_count=None):
 
 用户要求：{text_requirement}{shots_limit_text}
 
-请生成包含以下内容的剧本：
-1. 剧本标题
-2. 总时长
-3. 剧情简介和人物设定
-4. 分镜列表（每个分镜包含：时长、景别、画面描述、运镜方式、旁白/对话、音效建议）
-{f'【注意】分镜列表必须恰好包含 {shots_count} 个分镜，这是硬性要求。' if shots_count and isinstance(shots_count, int) and shots_count > 0 else ''}
+请严格输出一个纯 JSON 对象，禁止任何解释性文字、禁止 Markdown 代码块、禁止在内容中夹杂额外说明。
+输出结构必须满足以下 schema：
+{{
+  "剧本标题": "字符串",
+  "总时长": "字符串",
+  "剧情简介": "字符串",
+  "人物设定": {{
+    "角色名": "角色简介"
+  }},
+  "分镜列表": [
+    {{
+      "时长": "字符串",
+      "景别": "字符串",
+      "画面描述": "字符串",
+      "运镜方式": "字符串",
+      "旁白/对话": "字符串",
+      "音效建议": "字符串"
+    }}
+  ]
+}}
 
-请用JSON格式返回结果。"""
+要求：
+1. 必须使用标准 JSON 语法，键名要用双引号，字符串值也要用双引号。
+2. 分镜列表必须是数组，且长度严格等于 {shots_count}，如果未指定则由你自行决定。
+3. 不能把整个剧本包在字符串里，不能输出伪 JSON。
+4. 画面描述、旁白/对话、音效建议必须是清晰、可展示的文本。
+5. 只返回 JSON，不要包含任何前后缀文字。"""
         })
         log.debug("已添加用户文字要求")
     
@@ -165,11 +184,11 @@ def generate_script(image_data_list, text_requirement, api_key='', model_name='d
             json={
                 "model": model_name,
                 "messages": messages,
-                "temperature": 0.7,
-                "stream": True
+                "temperature": 0.2,
+                "stream": False,
+                "response_format": {"type": "json_object"}
             },
-            timeout=120,
-            stream=True
+            timeout=300
         )
         
         log.debug(f"API响应状态码: {response.status_code}")
@@ -184,29 +203,10 @@ def generate_script(image_data_list, text_requirement, api_key='', model_name='d
             log.error(f"API返回错误: {error_msg}")
             return {"error": error_msg}
         
-        content = ""
-        for chunk in response.iter_content(chunk_size=1024, decode_unicode=False):
-            if _cancel_requested:
-                log.info("检测到取消请求，停止接收响应")
-                response.close()
-                return {"error": "生成已停止"}
-            
-            if chunk:
-                for line in chunk.splitlines():
-                    if isinstance(line, bytes):
-                        line = line.decode('utf-8', errors='replace')
-                    line = line.strip()
-                    if line.startswith('data:'):
-                        line = line[5:].strip()
-                        if line == '[DONE]':
-                            break
-                        try:
-                            data = json.loads(line)
-                            delta = data.get('choices', [{}])[0].get('delta', {})
-                            if 'content' in delta:
-                                content += delta['content']
-                        except json.JSONDecodeError:
-                            continue
+        result_json = response.json()
+        content = result_json.get('choices', [{}])[0].get('message', {}).get('content', '')
+        if isinstance(content, list):
+            content = ''.join([item.get('text', '') for item in content if isinstance(item, dict)])
         
         if _cancel_requested:
             log.info("检测到取消请求")
