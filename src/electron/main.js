@@ -224,15 +224,80 @@ function stopFlaskServer() {
     }
 }
 
+function waitForFlaskServer(maxAttempts = 30, delay = 1000) {
+    return new Promise((resolve, reject) => {
+        const http = require('http');
+        let attempts = 0;
+        
+        const check = () => {
+            attempts++;
+            console.log(`[Flask] 等待服务就绪... 第 ${attempts} 次尝试`);
+            
+            const req = http.request({
+                hostname: '127.0.0.1',
+                port: 5000,
+                path: '/api/health',
+                method: 'GET',
+                timeout: 2000
+            }, (res) => {
+                if (res.statusCode === 200) {
+                    console.log('[Flask] Flask 服务已就绪');
+                    resolve();
+                } else {
+                    if (attempts < maxAttempts) {
+                        setTimeout(check, delay);
+                    } else {
+                        reject(new Error('Flask 服务启动超时'));
+                    }
+                }
+                res.resume();
+            });
+            
+            req.on('error', () => {
+                if (attempts < maxAttempts) {
+                    setTimeout(check, delay);
+                } else {
+                    reject(new Error('Flask 服务启动超时'));
+                }
+            });
+            
+            req.on('timeout', () => {
+                req.destroy();
+                if (attempts < maxAttempts) {
+                    setTimeout(check, delay);
+                } else {
+                    reject(new Error('Flask 服务启动超时'));
+                }
+            });
+            
+            req.end();
+        };
+        
+        setTimeout(check, 1000);
+    });
+}
+
 // 应用准备就绪
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     console.log('Electron 应用准备就绪');
     
     // 启动 Flask 服务
     startFlaskServer();
     
-    // 创建窗口
-    createWindow();
+    try {
+        // 等待 Flask 服务就绪
+        await waitForFlaskServer();
+        
+        // 创建窗口
+        createWindow();
+    } catch (error) {
+        console.error('[Flask] 等待服务就绪失败:', error.message);
+        
+        const { dialog } = require('electron');
+        dialog.showErrorBox('启动失败', 'Flask 服务启动超时，请检查网络连接或重新启动应用');
+        
+        app.quit();
+    }
 });
 
 // 所有窗口关闭

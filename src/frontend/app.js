@@ -441,6 +441,16 @@ async function generateScript() {
     // 开始生成
     state.isGenerating = true;
     state.abortController = new AbortController();
+    
+    const timeoutId = setTimeout(() => {
+        if (state.abortController && !state.abortController.signal.aborted) {
+            state.abortController.abort();
+            console.error('请求超时');
+        }
+    }, 300000);
+    
+    state.abortTimeoutId = timeoutId;
+    
     saveConfig();
     showLoading();
     updateGenerateBtnState();
@@ -503,6 +513,10 @@ async function generateScript() {
     } finally {
         state.isGenerating = false;
         state.abortController = null;
+        if (state.abortTimeoutId) {
+            clearTimeout(state.abortTimeoutId);
+            state.abortTimeoutId = null;
+        }
         hideLoading();
         updateGenerateBtnState();
     }
