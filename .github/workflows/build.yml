@@ -96,7 +96,7 @@ jobs:
           
           # 尝试挂载并检查内容
           mkdir -p /tmp/mnt
-          hdiutil attach "$DMG_FILE" -mountpoint /tmp/mnt -quiet
+          hdiutil attach "$DMG_FILE" -mountpoint /tmp/mnt -noverify -noautoopen -nobrowse -quiet
           
           if [ -d "/tmp/mnt/短视频剧本生成器.app" ]; then
             echo "✅ .app bundle found"
@@ -106,16 +106,23 @@ jobs:
               echo "✅ api binary found in Resources"
             else
               echo "❌ api binary not found in Resources"
-              hdiutil detach /tmp/mnt -quiet
+              hdiutil detach /tmp/mnt -force -quiet || true
               exit 1
             fi
           else
             echo "❌ .app bundle not found"
-            hdiutil detach /tmp/mnt -quiet
+            hdiutil detach /tmp/mnt -force -quiet || true
             exit 1
           fi
           
-          hdiutil detach /tmp/mnt -quiet
+          for i in 1 2 3; do
+            if hdiutil detach /tmp/mnt -force -quiet; then
+              echo "✅ DMG detached successfully"
+              break
+            fi
+            echo "⚠️ Detach attempt $i failed, retrying..."
+            sleep 2
+          done
           echo "✅ All checks passed!"
         
       - name: Upload artifact
@@ -175,7 +182,7 @@ jobs:
           
           # 尝试挂载并检查内容
           mkdir -p /tmp/mnt
-          hdiutil attach "$DMG_FILE" -mountpoint /tmp/mnt -quiet
+          hdiutil attach "$DMG_FILE" -mountpoint /tmp/mnt -noverify -noautoopen -nobrowse -quiet
           
           if [ -d "/tmp/mnt/短视频剧本生成器.app" ]; then
             echo "✅ .app bundle found"
@@ -185,16 +192,23 @@ jobs:
               echo "✅ api binary found in Resources"
             else
               echo "❌ api binary not found in Resources"
-              hdiutil detach /tmp/mnt -quiet
+              hdiutil detach /tmp/mnt -force -quiet || true
               exit 1
             fi
           else
             echo "❌ .app bundle not found"
-            hdiutil detach /tmp/mnt -quiet
+            hdiutil detach /tmp/mnt -force -quiet || true
             exit 1
           fi
           
-          hdiutil detach /tmp/mnt -quiet
+          for i in 1 2 3; do
+            if hdiutil detach /tmp/mnt -force -quiet; then
+              echo "✅ DMG detached successfully"
+              break
+            fi
+            echo "⚠️ Detach attempt $i failed, retrying..."
+            sleep 2
+          done
           echo "✅ All checks passed!"
         
       - name: Upload artifact
