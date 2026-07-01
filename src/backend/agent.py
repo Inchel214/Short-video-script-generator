@@ -185,17 +185,19 @@ def generate_script(image_data_list, text_requirement, api_key='', model_name='d
             return {"error": error_msg}
         
         content = ""
-        for chunk in response.iter_content(chunk_size=1024, decode_unicode=True):
+        for chunk in response.iter_content(chunk_size=1024, decode_unicode=False):
             if _cancel_requested:
                 log.info("检测到取消请求，停止接收响应")
                 response.close()
                 return {"error": "生成已停止"}
             
             if chunk:
-                for line in chunk.split('\n'):
+                for line in chunk.splitlines():
+                    if isinstance(line, bytes):
+                        line = line.decode('utf-8', errors='replace')
                     line = line.strip()
-                    if line.startswith('data: '):
-                        line = line[6:]
+                    if line.startswith('data:'):
+                        line = line[5:].strip()
                         if line == '[DONE]':
                             break
                         try:
@@ -274,16 +276,27 @@ def parse_script_content(content):
     """
     log.info("开始解析剧本内容")
     
-    # 尝试提取 JSON
-    json_match = re.search(r'\{[\s\S]*\}', content)
+    cleaned_content = content.strip()
+    if cleaned_content.startswith("```"):
+        cleaned_content = re.sub(r'^```(?:json)?\s*|\s*```$', '', cleaned_content, flags=re.MULTILINE)
+    
+    # 尝试直接解析完整 JSON
+    try:
+        data = json.loads(cleaned_content)
+        log.info("成功解析 JSON 格式剧本")
+        return data
+    except json.JSONDecodeError as e:
+        log.warning(f"JSON 解析失败: {e}")
+    
+    # 尝试提取 JSON（保底）
+    json_match = re.search(r'\{[\s\S]*\}', cleaned_content)
     if json_match:
         try:
             data = json.loads(json_match.group())
             log.info("成功解析 JSON 格式剧本")
-            # 直接返回解析后的数据，不要再次包装
             return data
         except json.JSONDecodeError as e:
-            log.warning(f"JSON 解析失败: {e}")
+            log.warning(f"提取后的 JSON 解析失败: {e}")
     
     # 如果不是 JSON，尝试按文本格式解析
     log.info("尝试按文本格式解析剧本")
