@@ -149,7 +149,7 @@ def generate_script():
                 continue
             normalized_shots.append({
                 'id': shot.get('id', idx + 1),
-                'title': shot.get('title', shot.get('标题', '')),
+                'title': shot.get('title', shot.get('主题', shot.get('标题', ''))),
                 'description': shot.get('description', shot.get('画面描述', '')),
                 '时长': shot.get('时长', shot.get('duration', '')),
                 '景别': shot.get('景别', shot.get('scene', '')),
@@ -157,7 +157,8 @@ def generate_script():
                 '运镜方式': shot.get('运镜方式', shot.get('camera', '')),
                 '旁白/对话': shot.get('旁白/对话', shot.get('dialogue', '')),
                 '音效建议': shot.get('音效建议', shot.get('soundEffect', '')),
-                'expanded': shot.get('expanded', True)
+                'expanded': shot.get('expanded', True),
+                '主题': shot.get('主题', '')
             })
         shots = normalized_shots
 

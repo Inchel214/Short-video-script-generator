@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>短视频剧本生成器</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
     <div class="container">
@@ -216,6 +216,21 @@
         <footer class="footer">
             <p>短视频剧本生成器 | 基于火山引擎大模型</p>
         </footer>
+    </div>
+
+    <!-- 自定义弹窗 -->
+    <div class="custom-dialog-overlay" id="custom-dialog-overlay" style="display: none;">
+        <div class="custom-dialog">
+            <div class="custom-dialog-content">
+                <div class="custom-dialog-icon" id="custom-dialog-icon">📋</div>
+                <div class="custom-dialog-title" id="custom-dialog-title">提示</div>
+                <div class="custom-dialog-message" id="custom-dialog-message"></div>
+            </div>
+            <div class="custom-dialog-buttons">
+                <button class="btn-dialog-cancel" id="btn-dialog-cancel">取消</button>
+                <button class="btn-dialog-confirm" id="btn-dialog-confirm">确定</button>
+            </div>
+        </div>
     </div>
 
     <script src="app.js"></script>

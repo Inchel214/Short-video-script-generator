@@ -987,7 +987,7 @@ textarea:focus {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 14px 16px;
+    padding: 10px 16px 2px;
     background: #ffffff;
     cursor: pointer;
 }
@@ -1036,26 +1036,131 @@ textarea:focus {
     transform: rotate(180deg);
 }
 
+/* 自定义弹窗样式 */
+.custom-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.custom-dialog {
+    background: #fff;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    animation: slideUp 0.3s ease;
+    overflow: hidden;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.custom-dialog-content {
+    padding: 24px;
+    text-align: center;
+}
+
+.custom-dialog-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.custom-dialog-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 12px;
+}
+
+.custom-dialog-message {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.6;
+}
+
+.custom-dialog-buttons {
+    display: flex;
+    border-top: 1px solid #f0f0f0;
+}
+
+.btn-dialog-cancel,
+.btn-dialog-confirm {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-dialog-cancel {
+    color: #666;
+    background: #fafafa;
+    border-right: 1px solid #f0f0f0;
+}
+
+.btn-dialog-cancel:hover {
+    background: #f0f0f0;
+}
+
+.btn-dialog-confirm {
+    color: #fff;
+    background: #222;
+}
+
+.btn-dialog-confirm:hover {
+    background: #333;
+}
+
 .result-card-content {
-    padding: 16px;
     font-size: 14px;
     line-height: 1.8;
     white-space: pre-wrap;
     word-wrap: break-word;
-    background: #ffffff;
+    padding: 4px 8px;
+    margin: 0;
+    font-size: 0;
 }
 
 .synopsis-section {
     white-space: pre-wrap;
     word-wrap: break-word;
+    font-size: 14px;
 }
 
 .synopsis-section .merged-content {
     color: #333;
-    padding: 12px;
     background: #fafaf8;
     border-radius: 8px;
     line-height: 1.7;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 8px 12px;
+    margin: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 /* 分镜生成标题 */
@@ -1110,7 +1215,7 @@ textarea:focus {
 .shot-item-header {
     display: flex;
     align-items: center;
-    padding: 12px 16px;
+    padding: 8px 12px;
     gap: 10px;
     cursor: pointer;
     background: #fafaf8;
@@ -1183,9 +1288,10 @@ textarea:focus {
 
 .shot-item-content {
     display: none;
-    padding: 16px;
+    padding: 4px 8px;
     border-top: 1px solid #f0efe9;
     background: #ffffff;
+    font-size: 0;
 }
 
 .shot-item-content.expanded {
@@ -1194,17 +1300,21 @@ textarea:focus {
 
 .shot-description-input {
     width: 100%;
-    min-height: 80px;
+    height: auto;
+    min-height: 40px;
+    max-height: 200px;
     border: 1px solid #e5e3dc;
     border-radius: 8px;
-    padding: 12px;
+    padding: 8px 12px;
     font-size: 14px;
-    line-height: 1.6;
+    line-height: 1.7;
     color: #3d3a36;
     background: #fafaf8;
-    resize: vertical;
+    resize: none;
     outline: none;
     font-family: inherit;
+    overflow-y: auto;
+    box-sizing: border-box;
 }
 
 .shot-description-input:focus {
@@ -1218,4 +1328,102 @@ textarea:focus {
 
 .arrow-icon.expanded {
     transform: rotate(180deg);
+}
+
+/* 自定义弹窗样式 */
+.custom-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.custom-dialog {
+    background: #fff;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    animation: slideUp 0.3s ease;
+    overflow: hidden;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.custom-dialog-content {
+    padding: 24px;
+    text-align: center;
+}
+
+.custom-dialog-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.custom-dialog-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 12px;
+}
+
+.custom-dialog-message {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.6;
+}
+
+.custom-dialog-buttons {
+    display: flex;
+    border-top: 1px solid #f0f0f0;
+}
+
+.btn-dialog-cancel,
+.btn-dialog-confirm {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-dialog-cancel {
+    color: #666;
+    background: #fafafa;
+    border-right: 1px solid #f0f0f0;
+}
+
+.btn-dialog-cancel:hover {
+    background: #f0f0f0;
+}
+
+.btn-dialog-confirm {
+    color: #fff;
+    background: #222;
+}
+
+.btn-dialog-confirm:hover {
+    background: #333;
 }

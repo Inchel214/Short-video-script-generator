@@ -28,6 +28,85 @@ function loadStateFromStorage() {
     }
 }
 
+function autoResizeTextarea(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+}
+
+// 自定义弹窗函数
+function showCustomAlert(message, icon = '📋', title = '提示') {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('custom-dialog-overlay');
+        const iconEl = document.getElementById('custom-dialog-icon');
+        const titleEl = document.getElementById('custom-dialog-title');
+        const msgEl = document.getElementById('custom-dialog-message');
+        const cancelBtn = document.getElementById('btn-dialog-cancel');
+        const confirmBtn = document.getElementById('btn-dialog-confirm');
+
+        iconEl.textContent = icon;
+        titleEl.textContent = title;
+        msgEl.textContent = message;
+
+        cancelBtn.style.display = 'none';
+        confirmBtn.textContent = '确定';
+
+        const close = () => {
+            overlay.style.display = 'none';
+            confirmBtn.removeEventListener('click', close);
+            overlay.removeEventListener('click', handleOverlayClick);
+            resolve();
+        };
+
+        const handleOverlayClick = (e) => {
+            if (e.target === overlay) close();
+        };
+
+        confirmBtn.addEventListener('click', close);
+        overlay.addEventListener('click', handleOverlayClick);
+
+        overlay.style.display = 'flex';
+    });
+}
+
+function showCustomConfirm(message, icon = '❓', title = '确认') {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('custom-dialog-overlay');
+        const iconEl = document.getElementById('custom-dialog-icon');
+        const titleEl = document.getElementById('custom-dialog-title');
+        const msgEl = document.getElementById('custom-dialog-message');
+        const cancelBtn = document.getElementById('btn-dialog-cancel');
+        const confirmBtn = document.getElementById('btn-dialog-confirm');
+
+        iconEl.textContent = icon;
+        titleEl.textContent = title;
+        msgEl.textContent = message;
+
+        cancelBtn.style.display = 'block';
+        confirmBtn.textContent = '确定';
+
+        const close = (result) => {
+            overlay.style.display = 'none';
+            cancelBtn.removeEventListener('click', cancel);
+            confirmBtn.removeEventListener('click', confirm);
+            overlay.removeEventListener('click', handleOverlayClick);
+            resolve(result);
+        };
+
+        const cancel = () => close(false);
+        const confirm = () => close(true);
+
+        const handleOverlayClick = (e) => {
+            if (e.target === overlay) close(false);
+        };
+
+        cancelBtn.addEventListener('click', cancel);
+        confirmBtn.addEventListener('click', confirm);
+        overlay.addEventListener('click', handleOverlayClick);
+
+        overlay.style.display = 'flex';
+    });
+}
+
 // 保存结果到 localStorage
 function saveStateToStorage() {
     if (state.lastResult) {
@@ -552,6 +631,11 @@ function tryParseJsonString(value) {
     }
 }
 
+function cleanText(text) {
+    if (!text) return text;
+    return text.replace(/\n{3,}/g, '\n\n').trim();
+}
+
 function normalizeResult(result) {
     const normalized = { ...result };
 
@@ -560,6 +644,7 @@ function normalizeResult(result) {
     if (typeof normalized.synopsis === 'object' && normalized.synopsis !== null) {
         normalized.synopsis = normalized.synopsis['剧情简介'] || normalized.synopsis['synopsis'] || '';
     }
+    normalized.synopsis = cleanText(normalized.synopsis);
 
     const charactersCandidate = normalized.characters ?? normalized['人物设定'] ?? normalized['人物小传'] ?? '';
     normalized.characters = tryParseJsonString(charactersCandidate);
@@ -567,6 +652,7 @@ function normalizeResult(result) {
         const charsStr = Object.entries(normalized.characters).map(([name, desc]) => `${name}：${desc}`).join('\n');
         normalized.characters = charsStr;
     }
+    normalized.characters = cleanText(normalized.characters);
 
     const shotsCandidate = normalized.shots ?? normalized['分镜列表'] ?? normalized['分镜'] ?? [];
     normalized.shots = tryParseJsonString(shotsCandidate);
@@ -578,7 +664,7 @@ function normalizeResult(result) {
         if (shot && typeof shot === 'object') {
             return {
                 id: shot.id ?? index + 1,
-                title: shot.title ?? shot['标题'] ?? '',
+                title: shot.title ?? shot['主题'] ?? shot['标题'] ?? '',
                 description: shot.description ?? shot['画面描述'] ?? shot['description'] ?? '',
                 duration: shot.duration ?? shot['时长'] ?? '',
                 scene: shot.scene ?? shot['景别'] ?? '',
@@ -591,7 +677,8 @@ function normalizeResult(result) {
                 '旁白/对话': shot['旁白/对话'] ?? shot.dialogue ?? '',
                 '音效建议': shot['音效建议'] ?? shot.soundEffect ?? '',
                 '时长': shot['时长'] ?? shot.duration ?? '',
-                '景别': shot['景别'] ?? shot.scene ?? ''
+                '景别': shot['景别'] ?? shot.scene ?? '',
+                '主题': shot['主题'] ?? ''
             };
         }
         return shot;
@@ -670,6 +757,11 @@ function displayResult(result) {
             const shotEl = createShotItem(shot, index);
             elements.shotsList.appendChild(shotEl);
         });
+        setTimeout(() => {
+            document.querySelectorAll('.shot-description-input').forEach(textarea => {
+                autoResizeTextarea(textarea);
+            });
+        }, 0);
     } else {
         elements.shotsList.innerHTML = '<p class="placeholder">暂无分镜内容</p>';
     }
@@ -693,16 +785,18 @@ function createShotItem(shot, index) {
     const camera = shot['运镜方式'] || shot.camera || '';
     const dialogue = shot['旁白/对话'] || shot.dialogue || '';
     const soundEffect = shot['音效建议'] || shot.soundEffect || '';
+    const shotTitle = shot['主题'] || shot.title || shot['标题'] || '';
     
-    const title = shot.title || shot['标题'] || (description ? description.substring(0, 20) : `分镜 ${number}`);
+    const title = shotTitle || (description ? description.substring(0, 20) + '...' : `分镜 ${number}`);
     const fullDescription = [
+        shotTitle ? `主题：${shotTitle}` : '',
         duration ? `时长：${duration}` : '',
         scene ? `景别：${scene}` : '',
-        description ? `\n\n画面描述：\n${description}` : '',
-        camera ? `\n\n运镜方式：${camera}` : '',
-        dialogue ? `\n\n旁白/对话：${dialogue}` : '',
-        soundEffect ? `\n\n音效建议：${soundEffect}` : ''
-    ].filter(Boolean).join('\n\n');
+        description ? `画面描述：${description}` : '',
+        camera ? `运镜方式：${camera}` : '',
+        dialogue ? `旁白/对话：${dialogue}` : '',
+        soundEffect ? `音效建议：${soundEffect}` : ''
+    ].filter(Boolean).join('\n');
     const descriptionText = fullDescription || '';
     const isExpanded = true; // 默认展开
     
@@ -753,11 +847,11 @@ function createShotItem(shot, index) {
     };
     
     // 编辑按钮 - 复制内容
-    editBtn.onclick = (e) => {
+    editBtn.onclick = async (e) => {
         e.stopPropagation();
         const text = `标题: ${titleInput.value}\n\n描述: ${descInput.value}`;
-        navigator.clipboard.writeText(text).then(() => {
-            alert('已复制到剪贴板');
+        navigator.clipboard.writeText(text).then(async () => {
+            await showCustomAlert('已复制到剪贴板', '📋');
         }).catch(err => {
             console.error('复制失败:', err);
         });
@@ -770,6 +864,10 @@ function createShotItem(shot, index) {
             deleteShot(shotEl);
         });
     };
+    
+    descInput.addEventListener('input', () => {
+        autoResizeTextarea(descInput);
+    });
     
     return shotEl;
 }
@@ -858,7 +956,8 @@ function escapeHtml(text) {
  * 清空历史
  */
 async function clearHistory() {
-    if (!confirm('确定要清空对话历史吗？')) return;
+    const confirmed = await showCustomConfirm('确定要清空对话历史吗？', '⚠️');
+    if (!confirmed) return;
     
     try {
         const response = await fetch(`${API_BASE_URL}/clear`, {
@@ -866,15 +965,14 @@ async function clearHistory() {
         });
         
         if (response.ok) {
-            alert('对话历史已清空');
-            // 刷新页面
+            await showCustomAlert('对话历史已清空', '✅');
             location.reload();
         } else {
             throw new Error('清空失败');
         }
     } catch (error) {
         console.error('清空历史失败:', error);
-        alert('清空失败: ' + error.message);
+        await showCustomAlert('清空失败: ' + error.message, '❌');
     }
 }
 
@@ -883,7 +981,7 @@ async function clearHistory() {
  */
 function exportScript() {
     if (!state.lastResult) {
-        alert('没有可导出的剧本，请先生成剧本');
+        showCustomAlert('没有可导出的剧本，请先生成剧本', '📝');
         return;
     }
     

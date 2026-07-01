@@ -48,13 +48,13 @@ def encode_image_from_base64(image_base64):
 
 def build_messages(image_data_list, text_requirement, shots_count=None):
     """
-    构建消息，包含多张图片和文字
+    构建发送给大模型的消息
     
     Args:
-        image_data_list: base64 编码的图片列表
-        text_requirement: 用户输入的文字要求
-        shots_count: 预期生成的分镜数量（可选）
-    
+        image_data_list: 图片数据列表
+        text_requirement: 用户文字要求
+        shots_count: 镜头数量
+        
     Returns:
         list: 消息列表
     """
@@ -62,7 +62,11 @@ def build_messages(image_data_list, text_requirement, shots_count=None):
     
     messages = []
     
-    # 添加历史对话
+    messages.append({
+        "role": "system",
+        "content": "你是一个专业的短视频剧本编剧。请严格输出一个纯 JSON 对象，禁止任何解释性文字、禁止 Markdown 代码块。JSON 键名必须使用双引号。"
+    })
+    
     if conversation_history:
         log.debug(f"添加历史对话，条数: {len(conversation_history)}")
         messages.extend(conversation_history)
@@ -118,6 +122,7 @@ def build_messages(image_data_list, text_requirement, shots_count=None):
   }},
   "分镜列表": [
     {{
+      "主题": "字符串",
       "时长": "字符串",
       "景别": "字符串",
       "画面描述": "字符串",
@@ -185,8 +190,7 @@ def generate_script(image_data_list, text_requirement, api_key='', model_name='d
                 "model": model_name,
                 "messages": messages,
                 "temperature": 0.2,
-                "stream": False,
-                "response_format": {"type": "json_object"}
+                "stream": False
             },
             timeout=300
         )
