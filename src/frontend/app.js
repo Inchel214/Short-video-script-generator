@@ -789,7 +789,6 @@ function createShotItem(shot, index) {
     
     const title = shotTitle || (description ? description.substring(0, 20) + '...' : `分镜 ${number}`);
     const fullDescription = [
-        shotTitle ? `主题：${shotTitle}` : '',
         duration ? `时长：${duration}` : '',
         scene ? `景别：${scene}` : '',
         description ? `画面描述：${description}` : '',
