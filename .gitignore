@@ -42,6 +42,7 @@ desktop.ini
 
 # 构建产物
 build/
+!build/icon.png
 dist/
 *.exe
 *.dmg
