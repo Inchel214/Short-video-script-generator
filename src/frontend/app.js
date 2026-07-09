@@ -150,7 +150,10 @@ const elements = {
     shotCount: document.getElementById('shot-count'),
     
     // 步骤
-    steps: document.querySelectorAll('.step')
+    steps: document.querySelectorAll('.step'),
+    
+    // 更新
+    updateBtn: document.getElementById('update-btn')
 };
 
 /**
@@ -232,6 +235,14 @@ function setupEventListeners() {
     
     // 导出剧本
     elements.exportBtn.addEventListener('click', exportScript);
+    
+    // 更新按钮
+    if (elements.updateBtn) {
+        elements.updateBtn.addEventListener('click', handleUpdateClick);
+    }
+    
+    // Electron IPC 监听更新事件
+    setupElectronUpdateListener();
 }
 
 /**
@@ -1069,6 +1080,73 @@ function exportScript() {
     URL.revokeObjectURL(url);
     
     console.log('剧本导出成功');
+}
+
+let updateState = {
+    version: '',
+    downloaded: false
+};
+
+function setupElectronUpdateListener() {
+    if (!window.electronAPI) {
+        console.log('非 Electron 环境，跳过更新监听');
+        return;
+    }
+
+    window.electronAPI.onUpdateAvailable((info) => {
+        console.log('[Update] 发现新版本:', info);
+        updateState.version = info.version;
+        updateState.downloaded = false;
+        
+        if (elements.updateBtn) {
+            elements.updateBtn.style.display = 'flex';
+            elements.updateBtn.classList.remove('downloading', 'downloaded');
+            elements.updateBtn.querySelector('.update-text').textContent = `版本 ${info.version}`;
+        }
+    });
+
+    window.electronAPI.onUpdateDownloadProgress((progress) => {
+        console.log('[Update] 下载进度:', progress);
+        
+        if (elements.updateBtn) {
+            elements.updateBtn.classList.add('downloading');
+            elements.updateBtn.classList.remove('downloaded');
+            elements.updateBtn.querySelector('.update-text').textContent = `${progress.percent}%`;
+        }
+    });
+
+    window.electronAPI.onUpdateDownloaded((info) => {
+        console.log('[Update] 更新下载完成:', info);
+        updateState.downloaded = true;
+        
+        if (elements.updateBtn) {
+            elements.updateBtn.classList.remove('downloading');
+            elements.updateBtn.classList.add('downloaded');
+            elements.updateBtn.querySelector('.update-text').textContent = '立即重启';
+        }
+    });
+
+    window.electronAPI.onUpdateError((error) => {
+        console.error('[Update] 更新错误:', error);
+    });
+}
+
+async function handleUpdateClick() {
+    if (!window.electronAPI) {
+        return;
+    }
+
+    if (updateState.downloaded) {
+        const confirmed = await showCustomConfirm(`版本 ${updateState.version} 已下载完成，是否立即重启应用安装更新？`, '🔄');
+        if (confirmed) {
+            window.electronAPI.triggerUpdateInstall();
+        }
+    } else {
+        const confirmed = await showCustomConfirm(`发现新版本 ${updateState.version}，是否开始下载更新？`, '📥');
+        if (confirmed) {
+            window.electronAPI.triggerUpdateDownload();
+        }
+    }
 }
 
 // 启动应用

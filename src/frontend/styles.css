@@ -24,6 +24,7 @@ body {
     padding: 40px 461px;
     background-color: transparent;
     text-align: center;
+    position: relative;
 }
 
 .header-content {
@@ -59,6 +60,50 @@ body {
 .header p {
     font-size: 14px;
     color: #7a7871;
+}
+
+.update-btn {
+    position: absolute;
+    top: 16px;
+    right: 40px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.update-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.update-btn:active {
+    transform: translateY(0);
+}
+
+.update-btn.downloading {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.update-btn.downloaded {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+
+.update-icon {
+    font-size: 14px;
+}
+
+.update-progress {
+    font-size: 11px;
 }
 
 /* 步骤指示器包装 */

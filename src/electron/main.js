@@ -2,7 +2,7 @@
  * Electron 主进程
  * 负责启动 Flask 服务、显示前端界面和自动更新
  */
-const { app, BrowserWindow, dialog } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -37,7 +37,8 @@ function createWindow() {
             nodeIntegration: false,
             contextIsolation: true,
             enableRemoteModule: false,
-            webSecurity: false
+            webSecurity: false,
+            preload: path.join(__dirname, 'preload.js')
         },
         show: false
     });
@@ -242,19 +243,12 @@ function setupAutoUpdater() {
     autoUpdater.on('update-available', (info) => {
         console.log(`[AutoUpdate] 发现新版本: ${info.version}`);
         
-        dialog.showMessageBox({
-            type: 'info',
-            title: '发现更新',
-            message: `版本 ${info.version} 已发布！\n\n更新内容：${info.releaseNotes || '暂无更新说明'}`,
-            buttons: ['立即更新', '稍后提醒'],
-            defaultId: 0
-        }).then((result) => {
-            if (result.response === 0) {
-                autoUpdater.downloadUpdate();
-            }
-        }).catch((err) => {
-            console.error('[AutoUpdate] 显示更新对话框失败:', err);
-        });
+        if (mainWindow) {
+            mainWindow.webContents.send('update-available', {
+                version: info.version,
+                releaseNotes: info.releaseNotes || ''
+            });
+        }
     });
 
     autoUpdater.on('update-not-available', () => {
@@ -263,28 +257,35 @@ function setupAutoUpdater() {
 
     autoUpdater.on('download-progress', (progress) => {
         console.log(`[AutoUpdate] 下载进度: ${Math.round(progress.percent)}%`);
+        
+        if (mainWindow) {
+            mainWindow.webContents.send('update-download-progress', {
+                percent: Math.round(progress.percent),
+                bytesPerSecond: progress.bytesPerSecond,
+                total: progress.total,
+                transferred: progress.transferred
+            });
+        }
     });
 
     autoUpdater.on('update-downloaded', (info) => {
         console.log('[AutoUpdate] 更新下载完成');
         
-        dialog.showMessageBox({
-            type: 'info',
-            title: '更新下载完成',
-            message: '更新已下载完成，是否立即重启应用以安装更新？',
-            buttons: ['立即重启', '稍后重启'],
-            defaultId: 0
-        }).then((result) => {
-            if (result.response === 0) {
-                autoUpdater.quitAndInstall();
-            }
-        }).catch((err) => {
-            console.error('[AutoUpdate] 显示安装对话框失败:', err);
-        });
+        if (mainWindow) {
+            mainWindow.webContents.send('update-downloaded', {
+                version: info.version
+            });
+        }
     });
 
     autoUpdater.on('error', (error) => {
         console.error('[AutoUpdate] 更新失败:', error);
+        
+        if (mainWindow) {
+            mainWindow.webContents.send('update-error', {
+                message: error.message
+            });
+        }
     });
 
     console.log('[AutoUpdate] 自动更新模块已初始化');
@@ -402,6 +403,19 @@ app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();
     }
+});
+
+// IPC 通信处理
+ipcMain.handle('trigger-update-download', () => {
+    console.log('[AutoUpdate] 前端触发下载更新');
+    autoUpdater.downloadUpdate().catch((err) => {
+        console.error('[AutoUpdate] 下载更新失败:', err);
+    });
+});
+
+ipcMain.handle('trigger-update-install', () => {
+    console.log('[AutoUpdate] 前端触发安装更新');
+    autoUpdater.quitAndInstall();
 });
 
 // 应用退出前清理
