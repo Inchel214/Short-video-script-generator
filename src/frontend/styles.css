@@ -1263,7 +1263,7 @@ textarea:focus {
     padding: 8px 12px;
     gap: 10px;
     cursor: pointer;
-    background: #fafaf8;
+    background: transparent;
 }
 
 .shot-number {
