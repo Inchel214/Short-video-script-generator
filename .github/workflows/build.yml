@@ -45,6 +45,31 @@ jobs:
           name: windows-build-unpacked
           path: dist/win-unpacked/
           
+      - name: Generate win latest.yml
+        run: |
+          $EXE_FILE = Get-ChildItem -Path dist\*.exe | Select-Object -First 1
+          if ($EXE_FILE) {
+            $FILE_NAME = $EXE_FILE.Name
+            $FILE_SIZE = $EXE_FILE.Length
+            $SHA512 = (Get-FileHash -Path $EXE_FILE.FullName -Algorithm SHA512).Hash.ToLower()
+            $VERSION = (Get-Content -Path package.json -Raw | ConvertFrom-Json).version
+            $RELEASE_DATE = Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ"
+            
+            @"
+version: $VERSION
+files:
+  - url: $FILE_NAME
+    sha512: $SHA512
+    size: $FILE_SIZE
+path: $FILE_NAME
+sha512: $SHA512
+releaseDate: $RELEASE_DATE
+"@ | Out-File -FilePath dist\latest.yml -Encoding utf8
+            Write-Host "✅ Generated latest.yml"
+          } else {
+            Write-Host "❌ No exe file found"
+          }
+          
       - name: Upload win latest.yml
         uses: actions/upload-artifact@v4
         with:
@@ -77,6 +102,31 @@ jobs:
         
       - name: Build Electron app
         run: npx electron-builder --mac --arm64 --publish=never
+        
+      - name: Generate mac arm64 latest-mac.yml
+        run: |
+          DMG_FILE=$(ls dist/*.dmg | head -n 1)
+          if [ -f "$DMG_FILE" ]; then
+            FILE_NAME=$(basename "$DMG_FILE")
+            FILE_SIZE=$(stat -f%z "$DMG_FILE")
+            SHA512=$(shasum -a 512 "$DMG_FILE" | awk '{print $1}')
+            VERSION=$(cat package.json | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])")
+            RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+            
+            cat > dist/latest-mac.yml << EOF
+version: $VERSION
+files:
+  - url: $FILE_NAME
+    sha512: $SHA512
+    size: $FILE_SIZE
+path: $FILE_NAME
+sha512: $SHA512
+releaseDate: $RELEASE_DATE
+EOF
+            echo "✅ Generated latest-mac.yml"
+          else
+            echo "❌ No dmg file found"
+          fi
         
       - name: Upload mac arm64 latest.yml
         uses: actions/upload-artifact@v4
@@ -170,6 +220,31 @@ jobs:
       - name: Build Electron app
         run: npx electron-builder --mac --x64 --publish=never
         
+      - name: Generate mac intel latest-mac.yml
+        run: |
+          DMG_FILE=$(ls dist/*.dmg | head -n 1)
+          if [ -f "$DMG_FILE" ]; then
+            FILE_NAME=$(basename "$DMG_FILE")
+            FILE_SIZE=$(stat -f%z "$DMG_FILE")
+            SHA512=$(shasum -a 512 "$DMG_FILE" | awk '{print $1}')
+            VERSION=$(cat package.json | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])")
+            RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+            
+            cat > dist/latest-mac.yml << EOF
+version: $VERSION
+files:
+  - url: $FILE_NAME
+    sha512: $SHA512
+    size: $FILE_SIZE
+path: $FILE_NAME
+sha512: $SHA512
+releaseDate: $RELEASE_DATE
+EOF
+            echo "✅ Generated latest-mac.yml"
+          else
+            echo "❌ No dmg file found"
+          fi
+        
       - name: Upload mac intel latest.yml
         uses: actions/upload-artifact@v4
         with:
@@ -261,6 +336,31 @@ jobs:
         
       - name: Build Electron app
         run: npx electron-builder --linux --publish=never
+        
+      - name: Generate linux latest-linux.yml
+        run: |
+          APPIMAGE_FILE=$(ls dist/*.AppImage | head -n 1)
+          if [ -f "$APPIMAGE_FILE" ]; then
+            FILE_NAME=$(basename "$APPIMAGE_FILE")
+            FILE_SIZE=$(stat -c%s "$APPIMAGE_FILE")
+            SHA512=$(sha512sum "$APPIMAGE_FILE" | awk '{print $1}')
+            VERSION=$(cat package.json | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])")
+            RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+            
+            cat > dist/latest-linux.yml << EOF
+version: $VERSION
+files:
+  - url: $FILE_NAME
+    sha512: $SHA512
+    size: $FILE_SIZE
+path: $FILE_NAME
+sha512: $SHA512
+releaseDate: $RELEASE_DATE
+EOF
+            echo "✅ Generated latest-linux.yml"
+          else
+            echo "❌ No AppImage file found"
+          fi
         
       - name: Upload linux latest.yml
         uses: actions/upload-artifact@v4
