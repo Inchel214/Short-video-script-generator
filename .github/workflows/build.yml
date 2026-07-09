@@ -45,31 +45,38 @@ jobs:
           name: windows-build-unpacked
           path: dist/win-unpacked/
           
-      - name: Generate win latest.yml
+      - name: Create generate_latest.py
         run: |
-          $EXE_FILE = Get-ChildItem -Path dist\*.exe | Select-Object -First 1
-          if ($EXE_FILE) {
-            $FILE_NAME = $EXE_FILE.Name
-            $FILE_SIZE = $EXE_FILE.Length
-            $SHA512 = (Get-FileHash -Path $EXE_FILE.FullName -Algorithm SHA512).Hash.ToLower()
-            $VERSION = (Get-Content -Path package.json -Raw | ConvertFrom-Json).version
-            $RELEASE_DATE = Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ"
-            
-            @"
-version: $VERSION
-files:
-  - url: $FILE_NAME
-    sha512: $SHA512
-    size: $FILE_SIZE
-path: $FILE_NAME
-sha512: $SHA512
-releaseDate: $RELEASE_DATE
-"@ | Out-File -FilePath dist\latest.yml -Encoding utf8
-            Write-Host "✅ Generated latest.yml"
-          } else {
-            Write-Host "❌ No exe file found"
-          }
-          
+          python -c "
+import os
+import hashlib
+import json
+import glob
+from datetime import datetime, timezone
+
+exe_files = glob.glob('dist/*.exe')
+if exe_files:
+    exe_file = exe_files[0]
+    file_name = os.path.basename(exe_file)
+    file_size = os.path.getsize(exe_file)
+    
+    with open(exe_file, 'rb') as f:
+        sha512 = hashlib.sha512(f.read()).hexdigest()
+    
+    with open('package.json', 'r', encoding='utf-8') as f:
+        version = json.load(f)['version']
+    
+    release_date = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
+    
+    content = 'version: ' + version + '\nfiles:\n  - url: ' + file_name + '\n    sha512: ' + sha512 + '\n    size: ' + str(file_size) + '\npath: ' + file_name + '\nsha512: ' + sha512 + '\nreleaseDate: ' + release_date + '\n'
+    
+    with open('dist/latest.yml', 'w', encoding='utf-8') as f:
+        f.write(content)
+    
+    print('Generated latest.yml')
+else:
+    print('No exe file found')
+"
       - name: Upload win latest.yml
         uses: actions/upload-artifact@v4
         with:
