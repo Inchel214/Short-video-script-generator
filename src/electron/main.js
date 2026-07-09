@@ -1,14 +1,19 @@
 /**
  * Electron 主进程
- * 负责启动 Flask 服务和显示前端界面
+ * 负责启动 Flask 服务、显示前端界面和自动更新
  */
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const { autoUpdater } = require('electron-updater');
 
 // 开发模式标志
 const isDev = process.env.NODE_ENV === 'development';
+
+// 自动更新配置
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = false;
 
 // Flask 服务进程
 let flaskProcess = null;
@@ -224,6 +229,78 @@ function stopFlaskServer() {
     }
 }
 
+function setupAutoUpdater() {
+    if (isDev) {
+        console.log('[AutoUpdate] 开发模式，跳过自动更新');
+        return;
+    }
+
+    autoUpdater.on('checking-for-update', () => {
+        console.log('[AutoUpdate] 正在检查更新...');
+    });
+
+    autoUpdater.on('update-available', (info) => {
+        console.log(`[AutoUpdate] 发现新版本: ${info.version}`);
+        
+        dialog.showMessageBox({
+            type: 'info',
+            title: '发现更新',
+            message: `版本 ${info.version} 已发布！\n\n更新内容：${info.releaseNotes || '暂无更新说明'}`,
+            buttons: ['立即更新', '稍后提醒'],
+            defaultId: 0
+        }).then((result) => {
+            if (result.response === 0) {
+                autoUpdater.downloadUpdate();
+            }
+        }).catch((err) => {
+            console.error('[AutoUpdate] 显示更新对话框失败:', err);
+        });
+    });
+
+    autoUpdater.on('update-not-available', () => {
+        console.log('[AutoUpdate] 当前已是最新版本');
+    });
+
+    autoUpdater.on('download-progress', (progress) => {
+        console.log(`[AutoUpdate] 下载进度: ${Math.round(progress.percent)}%`);
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+        console.log('[AutoUpdate] 更新下载完成');
+        
+        dialog.showMessageBox({
+            type: 'info',
+            title: '更新下载完成',
+            message: '更新已下载完成，是否立即重启应用以安装更新？',
+            buttons: ['立即重启', '稍后重启'],
+            defaultId: 0
+        }).then((result) => {
+            if (result.response === 0) {
+                autoUpdater.quitAndInstall();
+            }
+        }).catch((err) => {
+            console.error('[AutoUpdate] 显示安装对话框失败:', err);
+        });
+    });
+
+    autoUpdater.on('error', (error) => {
+        console.error('[AutoUpdate] 更新失败:', error);
+    });
+
+    console.log('[AutoUpdate] 自动更新模块已初始化');
+}
+
+function checkForUpdates() {
+    if (isDev) {
+        return;
+    }
+    
+    console.log('[AutoUpdate] 开始检查更新');
+    autoUpdater.checkForUpdates().catch((err) => {
+        console.error('[AutoUpdate] 检查更新失败:', err);
+    });
+}
+
 function waitForFlaskServer(maxAttempts = 30, delay = 1000) {
     return new Promise((resolve, reject) => {
         const http = require('http');
@@ -281,6 +358,9 @@ function waitForFlaskServer(maxAttempts = 30, delay = 1000) {
 app.whenReady().then(async () => {
     console.log('Electron 应用准备就绪');
     
+    // 初始化自动更新
+    setupAutoUpdater();
+    
     // 启动 Flask 服务
     startFlaskServer();
     
@@ -290,10 +370,14 @@ app.whenReady().then(async () => {
         
         // 创建窗口
         createWindow();
+        
+        // 窗口创建后检查更新
+        setTimeout(() => {
+            checkForUpdates();
+        }, 3000);
     } catch (error) {
         console.error('[Flask] 等待服务就绪失败:', error.message);
         
-        const { dialog } = require('electron');
         dialog.showErrorBox('启动失败', 'Flask 服务启动超时，请检查网络连接或重新启动应用');
         
         app.quit();

@@ -44,6 +44,12 @@ jobs:
         with:
           name: windows-build-unpacked
           path: dist/win-unpacked/
+          
+      - name: Upload win latest.yml
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-latest-yml
+          path: dist/latest.yml
 
   build-mac-arm64:
     runs-on: macos-14
@@ -71,6 +77,12 @@ jobs:
         
       - name: Build Electron app
         run: npx electron-builder --mac --arm64 --publish=never
+        
+      - name: Upload mac arm64 latest.yml
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-arm64-latest-yml
+          path: dist/latest-mac.yml
         
       - name: Verify DMG structure
         run: |
@@ -158,6 +170,12 @@ jobs:
       - name: Build Electron app
         run: npx electron-builder --mac --x64 --publish=never
         
+      - name: Upload mac intel latest.yml
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-intel-latest-yml
+          path: dist/latest-mac.yml
+        
       - name: Verify DMG structure
         run: |
           DMG_FILE=$(ls dist/*.dmg | head -n 1)
@@ -244,6 +262,12 @@ jobs:
       - name: Build Electron app
         run: npx electron-builder --linux --publish=never
         
+      - name: Upload linux latest.yml
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-latest-yml
+          path: dist/latest-linux.yml
+        
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -267,6 +291,11 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
+          name: win-latest-yml
+          path: windows
+
+      - uses: actions/download-artifact@v4
+        with:
           name: mac-build-arm64
           path: mac-arm64
 
@@ -277,7 +306,22 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
+          name: mac-arm64-latest-yml
+          path: mac-arm64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: mac-intel-latest-yml
+          path: mac-intel
+
+      - uses: actions/download-artifact@v4
+        with:
           name: linux-build
+          path: linux
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-latest-yml
           path: linux
           
       - name: Create release
