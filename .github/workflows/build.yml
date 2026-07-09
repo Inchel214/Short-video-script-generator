@@ -45,38 +45,8 @@ jobs:
           name: windows-build-unpacked
           path: dist/win-unpacked/
           
-      - name: Create generate_latest.py
-        run: |
-          python -c "
-import os
-import hashlib
-import json
-import glob
-from datetime import datetime, timezone
-
-exe_files = glob.glob('dist/*.exe')
-if exe_files:
-    exe_file = exe_files[0]
-    file_name = os.path.basename(exe_file)
-    file_size = os.path.getsize(exe_file)
-    
-    with open(exe_file, 'rb') as f:
-        sha512 = hashlib.sha512(f.read()).hexdigest()
-    
-    with open('package.json', 'r', encoding='utf-8') as f:
-        version = json.load(f)['version']
-    
-    release_date = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
-    
-    content = 'version: ' + version + '\nfiles:\n  - url: ' + file_name + '\n    sha512: ' + sha512 + '\n    size: ' + str(file_size) + '\npath: ' + file_name + '\nsha512: ' + sha512 + '\nreleaseDate: ' + release_date + '\n'
-    
-    with open('dist/latest.yml', 'w', encoding='utf-8') as f:
-        f.write(content)
-    
-    print('Generated latest.yml')
-else:
-    print('No exe file found')
-"
+      - name: Generate win latest.yml
+        run: python scripts/generate_latest_yml.py "dist/*.exe" "dist/latest.yml"
       - name: Upload win latest.yml
         uses: actions/upload-artifact@v4
         with:
@@ -111,30 +81,7 @@ else:
         run: npx electron-builder --mac --arm64 --publish=never
         
       - name: Generate mac arm64 latest-mac.yml
-        run: |
-          DMG_FILE=$(ls dist/*.dmg | head -n 1)
-          if [ -f "$DMG_FILE" ]; then
-            FILE_NAME=$(basename "$DMG_FILE")
-            FILE_SIZE=$(stat -f%z "$DMG_FILE")
-            SHA512=$(shasum -a 512 "$DMG_FILE" | awk '{print $1}')
-            VERSION=$(cat package.json | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])")
-            RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
-            
-            cat > dist/latest-mac.yml << EOF
-version: $VERSION
-files:
-  - url: $FILE_NAME
-    sha512: $SHA512
-    size: $FILE_SIZE
-path: $FILE_NAME
-sha512: $SHA512
-releaseDate: $RELEASE_DATE
-EOF
-            echo "✅ Generated latest-mac.yml"
-          else
-            echo "❌ No dmg file found"
-          fi
-        
+        run: python3 scripts/generate_latest_yml.py "dist/*.dmg" "dist/latest-mac.yml"
       - name: Upload mac arm64 latest.yml
         uses: actions/upload-artifact@v4
         with:
@@ -228,30 +175,7 @@ EOF
         run: npx electron-builder --mac --x64 --publish=never
         
       - name: Generate mac intel latest-mac.yml
-        run: |
-          DMG_FILE=$(ls dist/*.dmg | head -n 1)
-          if [ -f "$DMG_FILE" ]; then
-            FILE_NAME=$(basename "$DMG_FILE")
-            FILE_SIZE=$(stat -f%z "$DMG_FILE")
-            SHA512=$(shasum -a 512 "$DMG_FILE" | awk '{print $1}')
-            VERSION=$(cat package.json | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])")
-            RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
-            
-            cat > dist/latest-mac.yml << EOF
-version: $VERSION
-files:
-  - url: $FILE_NAME
-    sha512: $SHA512
-    size: $FILE_SIZE
-path: $FILE_NAME
-sha512: $SHA512
-releaseDate: $RELEASE_DATE
-EOF
-            echo "✅ Generated latest-mac.yml"
-          else
-            echo "❌ No dmg file found"
-          fi
-        
+        run: python3 scripts/generate_latest_yml.py "dist/*.dmg" "dist/latest-mac.yml"
       - name: Upload mac intel latest.yml
         uses: actions/upload-artifact@v4
         with:
@@ -345,30 +269,7 @@ EOF
         run: npx electron-builder --linux --publish=never
         
       - name: Generate linux latest-linux.yml
-        run: |
-          APPIMAGE_FILE=$(ls dist/*.AppImage | head -n 1)
-          if [ -f "$APPIMAGE_FILE" ]; then
-            FILE_NAME=$(basename "$APPIMAGE_FILE")
-            FILE_SIZE=$(stat -c%s "$APPIMAGE_FILE")
-            SHA512=$(sha512sum "$APPIMAGE_FILE" | awk '{print $1}')
-            VERSION=$(cat package.json | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])")
-            RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
-            
-            cat > dist/latest-linux.yml << EOF
-version: $VERSION
-files:
-  - url: $FILE_NAME
-    sha512: $SHA512
-    size: $FILE_SIZE
-path: $FILE_NAME
-sha512: $SHA512
-releaseDate: $RELEASE_DATE
-EOF
-            echo "✅ Generated latest-linux.yml"
-          else
-            echo "❌ No AppImage file found"
-          fi
-        
+        run: python3 scripts/generate_latest_yml.py "dist/*.AppImage" "dist/latest-linux.yml"
       - name: Upload linux latest.yml
         uses: actions/upload-artifact@v4
         with:
