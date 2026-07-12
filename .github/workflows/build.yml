@@ -346,6 +346,17 @@ jobs:
         with:
           name: linux-latest-yml
           path: linux
+
+      - name: List files to upload
+        run: |
+          echo "=== Windows files ==="
+          find windows -type f 2>/dev/null || ls -la windows
+          echo "=== Mac ARM64 files ==="
+          find mac-arm64 -type f 2>/dev/null || ls -la mac-arm64
+          echo "=== Mac Intel files ==="
+          find mac-intel -type f 2>/dev/null || ls -la mac-intel
+          echo "=== Linux files ==="
+          find linux -type f 2>/dev/null || ls -la linux
           
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -353,9 +364,14 @@ jobs:
           tag_name: v${{ github.run_number }}
           name: Release ${{ github.run_number }}
           body: "Automatic build from GitHub Actions"
+          overwrite: true
+          fail_on_unmatched_files: false
           files: |
-            windows/**/*
-            windows-unpacked/**/*
-            mac-arm64/**/*
-            mac-intel/**/*
-            linux/**/*
+            windows/*.exe
+            windows/latest.yml
+            mac-arm64/*.dmg
+            mac-arm64/latest-mac.yml
+            mac-intel/*.dmg
+            mac-intel/latest-mac.yml
+            linux/*.AppImage
+            linux/latest-linux.yml
