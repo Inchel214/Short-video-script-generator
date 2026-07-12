@@ -7,16 +7,185 @@ import requests
 import os
 import json
 import re
+import time
 from . import logger
 
 # 获取日志记录器
 log = logger.setup_logger()
 
-# 对话历史管理
-conversation_history = []
 
-# 生成取消标志
-_cancel_requested = False
+class MemoryManager:
+    """
+    记忆管理器
+    负责管理短期记忆（对话历史）、场景记忆（当前剧本）和长期记忆（用户偏好）
+    """
+    
+    def __init__(self, max_history=20):
+        """
+        初始化记忆管理器
+        
+        Args:
+            max_history: 最大对话历史条数
+        """
+        self.max_history = max_history
+        self._short_term_memory = []
+        self._scene_memory = {
+            "synopsis": "",
+            "characters": "",
+            "shots": [],
+            "last_update_time": None
+        }
+        self._long_term_memory = {}
+        self._cancel_requested = False
+        
+        self._load_long_term_memory()
+    
+    def _load_long_term_memory(self):
+        """
+        从文件加载长期记忆
+        """
+        try:
+            memory_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'memory.json')
+            if os.path.exists(memory_file):
+                with open(memory_file, 'r', encoding='utf-8') as f:
+                    self._long_term_memory = json.load(f)
+                log.info("长期记忆加载成功")
+            else:
+                log.info("长期记忆文件不存在，将创建新文件")
+        except Exception as e:
+            log.warning(f"加载长期记忆失败: {e}")
+    
+    def _save_long_term_memory(self):
+        """
+        保存长期记忆到文件
+        """
+        try:
+            memory_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'memory.json')
+            with open(memory_file, 'w', encoding='utf-8') as f:
+                json.dump(self._long_term_memory, f, ensure_ascii=False, indent=2)
+            log.debug("长期记忆保存成功")
+        except Exception as e:
+            log.warning(f"保存长期记忆失败: {e}")
+    
+    def add_short_term_memory(self, role, content):
+        """
+        添加短期记忆（对话历史）
+        
+        Args:
+            role: 角色（user/assistant）
+            content: 内容
+        """
+        self._short_term_memory.append({
+            "role": role,
+            "content": content,
+            "timestamp": time.time()
+        })
+        
+        if len(self._short_term_memory) > self.max_history:
+            self._short_term_memory = self._short_term_memory[-self.max_history:]
+        
+        log.debug(f"短期记忆已更新，当前条数: {len(self._short_term_memory)}")
+    
+    def get_short_term_memory(self):
+        """
+        获取短期记忆（对话历史）
+        
+        Returns:
+            list: 对话历史列表
+        """
+        return [{"role": item["role"], "content": item["content"]} 
+                for item in self._short_term_memory]
+    
+    def clear_short_term_memory(self):
+        """
+        清空短期记忆（对话历史）
+        """
+        self._short_term_memory = []
+        log.info("短期记忆已清空")
+    
+    def update_scene_memory(self, script_data):
+        """
+        更新场景记忆（当前剧本）
+        
+        Args:
+            script_data: 剧本数据
+        """
+        self._scene_memory = {
+            "synopsis": script_data.get("synopsis", script_data.get("剧情简介", "")),
+            "characters": script_data.get("characters", script_data.get("人物设定", "")),
+            "shots": script_data.get("shots", script_data.get("分镜列表", [])),
+            "last_update_time": time.time()
+        }
+        log.info(f"场景记忆已更新，分镜数量: {len(self._scene_memory['shots'])}")
+    
+    def get_scene_memory(self):
+        """
+        获取场景记忆（当前剧本）
+        
+        Returns:
+            dict: 当前剧本状态
+        """
+        return self._scene_memory
+    
+    def has_scene_memory(self):
+        """
+        检查是否有场景记忆
+        
+        Returns:
+            bool: 是否有剧本数据
+        """
+        return len(self._scene_memory.get("shots", [])) > 0
+    
+    def update_long_term_memory(self, key, value):
+        """
+        更新长期记忆（用户偏好）
+        
+        Args:
+            key: 键名
+            value: 值
+        """
+        self._long_term_memory[key] = value
+        self._save_long_term_memory()
+        log.debug(f"长期记忆已更新: {key}")
+    
+    def get_long_term_memory(self, key=None):
+        """
+        获取长期记忆（用户偏好）
+        
+        Args:
+            key: 键名（可选，不提供则返回全部）
+        
+        Returns:
+            dict/any: 长期记忆数据
+        """
+        if key is None:
+            return self._long_term_memory
+        return self._long_term_memory.get(key)
+    
+    def request_cancel(self):
+        """
+        请求取消生成任务
+        """
+        self._cancel_requested = True
+        log.info("收到取消生成请求")
+    
+    def is_cancel_requested(self):
+        """
+        检查是否有取消请求
+        
+        Returns:
+            bool: 是否已请求取消
+        """
+        return self._cancel_requested
+    
+    def reset_cancel(self):
+        """
+        重置取消标志
+        """
+        self._cancel_requested = False
+
+
+memory_manager = MemoryManager()
 
 
 def encode_image_from_base64(image_base64):
@@ -67,9 +236,10 @@ def build_messages(image_data_list, text_requirement, shots_count=None):
         "content": "你是一个专业的短视频剧本编剧。请严格输出一个纯 JSON 对象，禁止任何解释性文字、禁止 Markdown 代码块。JSON 键名必须使用双引号。"
     })
     
-    if conversation_history:
-        log.debug(f"添加历史对话，条数: {len(conversation_history)}")
-        messages.extend(conversation_history)
+    short_term_memory = memory_manager.get_short_term_memory()
+    if short_term_memory:
+        log.debug(f"添加历史对话，条数: {len(short_term_memory)}")
+        messages.extend(short_term_memory)
     
     # 构建当前消息
     content = []
@@ -160,11 +330,10 @@ def generate_script(image_data_list, text_requirement, api_key='', model_name='d
     Returns:
         dict: 包含结构化结果或错误信息
     """
-    global conversation_history, _cancel_requested
     log.info(f"开始生成剧本，图片数量: {len(image_data_list) if image_data_list else 0}")
     log.debug(f"用户要求: {text_requirement[:50]}..." if text_requirement else "无用户文字要求")
     
-    _cancel_requested = False
+    memory_manager.reset_cancel()
     
     api_key = api_key or os.getenv("ARK_API_KEY")
     base_url = os.getenv("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
@@ -212,7 +381,7 @@ def generate_script(image_data_list, text_requirement, api_key='', model_name='d
         if isinstance(content, list):
             content = ''.join([item.get('text', '') for item in content if isinstance(item, dict)])
         
-        if _cancel_requested:
+        if memory_manager.is_cancel_requested():
             log.info("检测到取消请求")
             return {"error": "生成已停止"}
         
@@ -221,9 +390,9 @@ def generate_script(image_data_list, text_requirement, api_key='', model_name='d
             return {"error": "API未返回可用内容，请检查模型和请求参数"}
         log.info(f"API调用成功，回复内容长度: {len(content)} 字符")
         
-        conversation_history.append({"role": "user", "content": text_requirement or "请分析图片"})
-        conversation_history.append({"role": "assistant", "content": content})
-        log.debug(f"对话历史已更新，当前长度: {len(conversation_history)}")
+        memory_manager.add_short_term_memory("user", text_requirement or "请分析图片")
+        memory_manager.add_short_term_memory("assistant", content)
+        log.debug(f"对话历史已更新")
         
         log.info(f"大模型原始返回内容: {content[:500]}...")
         
@@ -252,9 +421,8 @@ def clear_history():
     """
     清空对话历史
     """
-    global conversation_history
     log.info("清空对话历史")
-    conversation_history = []
+    memory_manager.clear_short_term_memory()
     return {"message": "对话历史已清空"}
 
 
@@ -262,9 +430,8 @@ def cancel_generation():
     """
     请求取消当前生成任务
     """
-    global _cancel_requested
     log.info("收到取消生成请求")
-    _cancel_requested = True
+    memory_manager.request_cancel()
     return {"message": "已请求停止生成"}
 
 
@@ -345,3 +512,149 @@ def parse_script_content(content):
         "characters": characters or "暂无人物设定",
         "shots": shots
     }
+
+
+def build_chat_messages(message):
+    """
+    构建聊天消息（包含上下文和历史）
+    
+    Args:
+        message: 用户输入的消息
+    
+    Returns:
+        list: 消息列表
+    """
+    log.info(f"开始构建聊天消息，消息长度: {len(message)}")
+    
+    messages = []
+    
+    system_content = "你是一个专业的短视频剧本编剧。你可以理解并修改剧本内容。请用自然、友好的语言回复用户，帮助用户修改和优化剧本。"
+    
+    scene_memory = memory_manager.get_scene_memory()
+    if memory_manager.has_scene_memory():
+        script_summary = f"""【当前剧本上下文】
+剧情简介：{scene_memory["synopsis"]}
+人物设定：{scene_memory["characters"]}
+分镜数量：{len(scene_memory["shots"])}
+
+分镜列表：
+"""
+        for i, shot in enumerate(scene_memory["shots"], 1):
+            script_summary += f"{i}. {shot.get('title', shot.get('主题', ''))}\n"
+        
+        system_content = f"{system_content}\n\n{script_summary}"
+    
+    messages.append({
+        "role": "system",
+        "content": system_content
+    })
+    
+    short_term_memory = memory_manager.get_short_term_memory()
+    if short_term_memory:
+        log.debug(f"添加历史对话，条数: {len(short_term_memory)}")
+        messages.extend(short_term_memory)
+    
+    messages.append({"role": "user", "content": message})
+    
+    log.info(f"聊天消息构建完成，总长度: {len(messages)}")
+    return messages
+
+
+def chat(message, api_key='', model_name='doubao-seed-1-6-vision-250815'):
+    """
+    聊天接口
+    
+    Args:
+        message: 用户消息
+        api_key: API密钥
+        model_name: 模型名称
+    
+    Returns:
+        dict: 响应结果
+    """
+    log.info(f"开始聊天，消息长度: {len(message)}")
+    
+    api_key = api_key or os.getenv("ARK_API_KEY")
+    base_url = os.getenv("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
+    
+    if not api_key:
+        log.error("API密钥为空")
+        return {"error": "请输入API密钥"}
+    
+    try:
+        messages = build_chat_messages(message)
+        
+        log.debug(f"调用API: {base_url}/chat/completions")
+        log.debug(f"模型: {model_name}")
+        
+        response = requests.post(
+            f"{base_url}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": model_name,
+                "messages": messages,
+                "temperature": 0.7,
+                "stream": False
+            },
+            timeout=120
+        )
+        
+        log.debug(f"API响应状态码: {response.status_code}")
+        
+        if response.status_code != 200:
+            result = response.json()
+            if "error" in result:
+                err = result["error"]
+                error_msg = err.get("message", "API调用失败") if isinstance(err, dict) else str(err)
+            else:
+                error_msg = f"API调用失败，状态码: {response.status_code}"
+            log.error(f"API返回错误: {error_msg}")
+            return {"error": error_msg}
+        
+        result_json = response.json()
+        content = result_json.get('choices', [{}])[0].get('message', {}).get('content', '')
+        
+        if not content:
+            log.error("API未返回可用内容")
+            return {"error": "API未返回可用内容"}
+        
+        log.info(f"聊天响应成功，内容长度: {len(content)}")
+        
+        memory_manager.add_short_term_memory("user", message)
+        memory_manager.add_short_term_memory("assistant", content)
+        
+        log.debug("对话历史已更新")
+        
+        return {"success": True, "response": content}
+    
+    except requests.exceptions.Timeout:
+        log.error("请求超时")
+        return {"error": "请求超时，请重试"}
+    except requests.exceptions.RequestException as e:
+        log.error(f"网络错误: {str(e)}")
+        return {"error": f"网络错误: {str(e)}"}
+    except Exception as e:
+        log.error(f"发生未知错误: {str(e)}", exc_info=True)
+        return {"error": f"发生错误: {str(e)}"}
+
+
+def update_script(script_data):
+    """
+    更新当前剧本状态（场景记忆）
+    
+    Args:
+        script_data: 剧本数据
+    
+    Returns:
+        dict: 更新结果
+    """
+    log.info("更新当前剧本状态")
+    
+    memory_manager.update_scene_memory(script_data)
+    
+    scene_memory = memory_manager.get_scene_memory()
+    log.info(f"剧本状态已更新，分镜数量: {len(scene_memory['shots'])}")
+    return {"success": True, "message": "剧本状态已更新"}

@@ -99,101 +99,98 @@ function getPlatformErrorMessage() {
 function startFlaskServer() {
     console.log('启动 Flask 服务...');
     
-    const apiName = getApiExecutableName();
-    
-    // API 可执行文件路径
-    // 尝试多个可能的路径
-    let apiExePath = null;
-    const possiblePaths = [];
-    
-    // 路径1：打包后的 resources 目录（适用于所有平台）
-    if (process.resourcesPath) {
-        possiblePaths.push(path.join(process.resourcesPath, apiName));
-        // 路径2：portable 模式下可能在 app 根目录（Windows portable）
-        possiblePaths.push(path.join(process.resourcesPath, '..', apiName));
-        // 路径3：macOS 应用包内的 Frameworks 或 Resources 目录
-        possiblePaths.push(path.join(process.resourcesPath, '..', 'Frameworks', apiName));
-    }
-    
-    // 路径4：开发模式路径
-    possiblePaths.push(path.join(__dirname, '..', 'backend', 'dist', apiName));
-    
-    // 路径5：可执行文件所在目录（portable 模式）
-    if (process.execPath) {
-        const execDir = path.dirname(process.execPath);
-        possiblePaths.push(path.join(execDir, apiName));
-        // 路径6：portable 模式下可能在 app 目录下
-        possiblePaths.push(path.join(execDir, '..', apiName));
-    }
-    
-    // 路径7：当前工作目录
-    possiblePaths.push(path.join(process.cwd(), apiName));
-    
-    // 查找第一个存在的路径
-    for (const pathCandidate of possiblePaths) {
-        if (fs.existsSync(pathCandidate)) {
-            apiExePath = pathCandidate;
-            break;
-        }
-    }
-    
-    console.log(`[Flask] 平台: ${process.platform}`);
-    console.log(`[Flask] 尝试的 API 路径:`);
-    possiblePaths.forEach((p, i) => {
-        console.log(`  ${i + 1}. ${p} (存在: ${fs.existsSync(p)})`);
-    });
-    console.log(`[Flask] 找到的 API 路径: ${apiExePath || '未找到'}`);
-    console.log(`[Flask] process.resourcesPath: ${process.resourcesPath || 'undefined'}`);
-    console.log(`[Flask] process.execPath: ${process.execPath || 'undefined'}`);
-    
-    // 检查 API 可执行文件是否存在
-    if (!apiExePath) {
-        const errorMsg = `错误：未找到 API 可执行文件 (${apiName})\n\n${getPlatformErrorMessage()}`;
-        console.error(`[Flask] ${errorMsg}`);
-        
-        // 向主窗口发送错误消息
-        if (mainWindow) {
-            mainWindow.webContents.send('api-error', {
-                message: errorMsg
-            });
-        }
-        
-        // 显示对话框提示用户
-        const { dialog } = require('electron');
-        dialog.showErrorBox('启动失败', errorMsg);
-        
-        return;
-    }
-    
-    // 确保 API 文件有执行权限（Linux/macOS）
-    if (process.platform !== 'win32') {
-        try {
-            fs.chmodSync(apiExePath, 0o755);
-            console.log(`[Flask] 设置 ${apiName} 执行权限成功`);
-        } catch (e) {
-            console.warn(`[Flask] 设置 ${apiName} 执行权限失败: ${e.message}`);
-        }
-    }
-    
-    // 启动 API（直接运行可执行文件，无需 Python）
-    const spawnCwd = path.dirname(apiExePath);
+    let spawnArgs = [];
+    let spawnCwd = process.cwd();
     const spawnOptions = {
         cwd: spawnCwd,
         stdio: ['pipe', 'pipe', 'pipe'],
-        shell: false
+        shell: false,
+        env: { ...process.env }
     };
     
-    // macOS 特殊处理：设置环境变量
-    if (process.platform === 'darwin') {
-        spawnOptions.env = { ...process.env, PATH: `/usr/local/bin:/usr/bin:/bin:${process.env.PATH || ''}` };
+    if (isDev) {
+        const apiScriptPath = path.join(__dirname, '..', 'backend', 'api.py');
+        spawnArgs = ['python', apiScriptPath];
+        spawnOptions.env.PYTHONPATH = process.cwd();
+        console.log(`[Flask] 开发模式：使用 Python 启动`);
+        console.log(`[Flask] 启动命令: python ${apiScriptPath}`);
+    } else {
+        const apiName = getApiExecutableName();
+        
+        let apiExePath = null;
+        const possiblePaths = [];
+        
+        if (process.resourcesPath) {
+            possiblePaths.push(path.join(process.resourcesPath, apiName));
+            possiblePaths.push(path.join(process.resourcesPath, '..', apiName));
+            possiblePaths.push(path.join(process.resourcesPath, '..', 'Frameworks', apiName));
+        }
+        
+        possiblePaths.push(path.join(__dirname, '..', 'backend', 'dist', apiName));
+        
+        if (process.execPath) {
+            const execDir = path.dirname(process.execPath);
+            possiblePaths.push(path.join(execDir, apiName));
+            possiblePaths.push(path.join(execDir, '..', apiName));
+        }
+        
+        possiblePaths.push(path.join(process.cwd(), apiName));
+        
+        for (const pathCandidate of possiblePaths) {
+            if (fs.existsSync(pathCandidate)) {
+                apiExePath = pathCandidate;
+                break;
+            }
+        }
+        
+        console.log(`[Flask] 平台: ${process.platform}`);
+        console.log(`[Flask] 尝试的 API 路径:`);
+        possiblePaths.forEach((p, i) => {
+            console.log(`  ${i + 1}. ${p} (存在: ${fs.existsSync(p)})`);
+        });
+        console.log(`[Flask] 找到的 API 路径: ${apiExePath || '未找到'}`);
+        console.log(`[Flask] process.resourcesPath: ${process.resourcesPath || 'undefined'}`);
+        console.log(`[Flask] process.execPath: ${process.execPath || 'undefined'}`);
+        
+        if (!apiExePath) {
+            const errorMsg = `错误：未找到 API 可执行文件 (${apiName})\n\n${getPlatformErrorMessage()}`;
+            console.error(`[Flask] ${errorMsg}`);
+            
+            if (mainWindow) {
+                mainWindow.webContents.send('api-error', {
+                    message: errorMsg
+                });
+            }
+            
+            const { dialog } = require('electron');
+            dialog.showErrorBox('启动失败', errorMsg);
+            
+            return;
+        }
+        
+        if (process.platform !== 'win32') {
+            try {
+                fs.chmodSync(apiExePath, 0o755);
+                console.log(`[Flask] 设置 ${apiName} 执行权限成功`);
+            } catch (e) {
+                console.warn(`[Flask] 设置 ${apiName} 执行权限失败: ${e.message}`);
+            }
+        }
+        
+        spawnArgs = [apiExePath];
+        spawnCwd = path.dirname(apiExePath);
+        spawnOptions.cwd = spawnCwd;
+        
+        if (process.platform === 'darwin') {
+            spawnOptions.env.PATH = `/usr/local/bin:/usr/bin:/bin:${process.env.PATH || ''}`;
+        }
+        
+        console.log(`[Flask] 启动命令: ${apiExePath}`);
+        console.log(`[Flask] 工作目录: ${spawnCwd}`);
     }
     
-    console.log(`[Flask] 启动命令: ${apiExePath}`);
-    console.log(`[Flask] 工作目录: ${spawnCwd}`);
+    flaskProcess = spawn(spawnArgs[0], spawnArgs.slice(1), spawnOptions);
     
-    flaskProcess = spawn(apiExePath, [], spawnOptions);
-    
-    // 监听 Flask 输出
     flaskProcess.stdout.on('data', (data) => {
         console.log(`[Flask] ${data}`);
     });

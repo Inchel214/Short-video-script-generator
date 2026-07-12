@@ -153,7 +153,13 @@ const elements = {
     steps: document.querySelectorAll('.step'),
     
     // 更新
-    updateBtn: document.getElementById('update-btn')
+    updateBtn: document.getElementById('update-btn'),
+    
+    // 聊天
+    chatMessages: document.getElementById('chat-messages'),
+    chatInput: document.getElementById('chat-input'),
+    sendChatBtn: document.getElementById('send-chat-btn'),
+    clearChatBtn: document.getElementById('clear-chat')
 };
 
 /**
@@ -240,6 +246,20 @@ function setupEventListeners() {
     if (elements.updateBtn) {
         elements.updateBtn.addEventListener('click', handleUpdateClick);
     }
+    
+    // 发送聊天消息
+    elements.sendChatBtn.addEventListener('click', sendChatMessage);
+    
+    // 聊天输入框回车发送
+    elements.chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendChatMessage();
+        }
+    });
+    
+    // 清空聊天
+    elements.clearChatBtn.addEventListener('click', clearChat);
     
     // Electron IPC 监听更新事件
     setupElectronUpdateListener();
@@ -501,14 +521,16 @@ async function generateScript() {
         console.log('API 响应:', JSON.stringify(data, null, 2));
 
         if (data.success) {
-            console.log('响应成功，result:', JSON.stringify(data.result, null, 2));
+            console.log('响应成功，data:', JSON.stringify(data.data, null, 2));
             
             setStep(3);
             await new Promise(resolve => setTimeout(resolve, 1000));
             setStep(4);
             await new Promise(resolve => setTimeout(resolve, 1500));
             
-            displayResult(data.result);
+            displayResult(data.data);
+            
+            updateScriptState(data.data);
         } else {
             throw new Error(data.error || '生成失败');
         }
@@ -830,12 +852,17 @@ function createShotItem(shot, index) {
     const deleteIcon = 'https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937475560/732d/78fa/0bfa/ef69a3f36529bf83fb2a51e1081c1b24.png';
     // 箭头图标
     const arrowIcon = 'https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937478858/c347/651d/afa5/bb9fede252f974bddb880ec051aef1e3.png';
+    // 引用图标
+    const referenceIcon = 'https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937478818/2c03/0821/5b7f/499e02d41a7ba6618507de66bb4780f8.png';
     
     shotEl.innerHTML = `
         <div class="shot-item-header">
             <span class="shot-number">${number}</span>
             <input type="text" class="shot-title-input" value="${escapeHtml(title)}">
             <div class="shot-actions">
+                <span class="shot-action-btn" data-action="reference" title="引用到聊天">
+                    <img src="${referenceIcon}" alt="引用">
+                </span>
                 <span class="shot-action-btn" data-action="edit" title="复制">
                     <img src="${editIcon}" alt="编辑">
                 </span>
@@ -854,6 +881,7 @@ function createShotItem(shot, index) {
     const header = shotEl.querySelector('.shot-item-header');
     const expandArrow = shotEl.querySelector('.shot-expand-arrow');
     const content = shotEl.querySelector('.shot-item-content');
+    const referenceBtn = shotEl.querySelector('[data-action="reference"]');
     const editBtn = shotEl.querySelector('[data-action="edit"]');
     const deleteBtn = shotEl.querySelector('[data-action="delete"]');
     const titleInput = shotEl.querySelector('.shot-title-input');
@@ -868,6 +896,13 @@ function createShotItem(shot, index) {
     expandArrow.onclick = (e) => {
         e.stopPropagation();
         toggleShotExpand(shotEl);
+    };
+    
+    // 引用按钮 - 引用到聊天
+    referenceBtn.onclick = (e) => {
+        e.stopPropagation();
+        referenceShotToChat(number, title, descriptionText);
+        showCustomAlert('已将分镜引用到聊天框', '📝');
     };
     
     // 编辑按钮 - 复制内容
@@ -1146,6 +1181,124 @@ async function handleUpdateClick() {
         if (confirmed) {
             window.electronAPI.triggerUpdateDownload();
         }
+    }
+}
+
+// 聊天功能
+
+function addChatMessage(message, isUser) {
+    const messageEl = document.createElement('div');
+    messageEl.className = `chat-message ${isUser ? 'user' : 'assistant'}`;
+    
+    const avatar = document.createElement('div');
+    avatar.className = 'chat-avatar';
+    avatar.textContent = isUser ? '👤' : '🤖';
+    
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'chat-content';
+    
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble';
+    bubble.textContent = message;
+    
+    const time = document.createElement('div');
+    time.className = 'chat-time';
+    const now = new Date();
+    time.textContent = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    contentWrapper.appendChild(bubble);
+    contentWrapper.appendChild(time);
+    
+    messageEl.appendChild(avatar);
+    messageEl.appendChild(contentWrapper);
+    
+    elements.chatMessages.appendChild(messageEl);
+    
+    scrollToBottom();
+}
+
+function scrollToBottom() {
+    if (elements.chatMessages) {
+        elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+    }
+}
+
+async function sendChatMessage() {
+    const message = elements.chatInput.value.trim();
+    if (!message) return;
+    
+    const apiKey = elements.apiKeyInput.value.trim();
+    if (!apiKey) {
+        await showCustomAlert('请先输入 API 密钥', '🔑');
+        return;
+    }
+    
+    elements.chatInput.value = '';
+    elements.sendChatBtn.disabled = true;
+    
+    addChatMessage(message, true);
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: message,
+                api_key: apiKey,
+                model_name: elements.modelNameInput.value.trim()
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            addChatMessage(data.data.response, false);
+        } else {
+            await showCustomAlert(data.error || '聊天失败', '❌');
+        }
+    } catch (error) {
+        console.error('聊天失败:', error);
+        await showCustomAlert('网络错误，请检查后端服务是否启动', '❌');
+    } finally {
+        elements.sendChatBtn.disabled = false;
+    }
+}
+
+function clearChat() {
+    elements.chatMessages.innerHTML = `
+        <div class="chat-welcome">
+            <span class="welcome-icon">👋</span>
+            <p>你好！我是你的剧本修改助手。</p>
+            <p>你可以让我帮你修改剧本、调整分镜等。</p>
+            <p>点击分镜后可以引用到这里进行修改。</p>
+        </div>
+    `;
+}
+
+function referenceShotToChat(shotIndex, shotTitle, shotContent) {
+    const referenceText = `请修改第${shotIndex}镜：${shotTitle}\n\n当前内容：\n${shotContent}`;
+    elements.chatInput.value = referenceText;
+    elements.chatInput.focus();
+}
+
+async function updateScriptState(scriptData) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/update-script`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(scriptData)
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            console.log('剧本状态已更新到后端');
+        }
+    } catch (error) {
+        console.error('更新剧本状态失败:', error);
     }
 }
 

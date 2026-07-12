@@ -11,10 +11,62 @@ import os
 
 # 创建 Flask 应用
 app = Flask(__name__)
-CORS(app)  # 允许跨域请求
+CORS(app)
 
 # 获取日志记录器
 log = logger.setup_logger()
+
+
+def api_response(data=None, error=None, status=200):
+    """
+    统一响应格式
+    
+    Args:
+        data: 成功响应数据
+        error: 错误信息
+        status: HTTP 状态码
+    
+    Returns:
+        Response: Flask 响应对象
+    """
+    if error:
+        response_data = {
+            'success': False,
+            'error': error
+        }
+    else:
+        response_data = {
+            'success': True,
+            'data': data
+        }
+    resp = jsonify(response_data)
+    resp.status_code = status
+    return resp
+
+
+@app.errorhandler(400)
+def bad_request(error):
+    """
+    处理 400 错误
+    """
+    return api_response(error=str(error), status=400)
+
+
+@app.errorhandler(404)
+def not_found(error):
+    """
+    处理 404 错误
+    """
+    return api_response(error=str(error), status=404)
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    """
+    处理 500 错误
+    """
+    log.error(f"内部服务器错误: {str(error)}", exc_info=True)
+    return api_response(error="服务器内部错误，请稍后重试", status=500)
 
 
 @app.route('/api/health', methods=['GET'])
@@ -23,10 +75,7 @@ def health_check():
     健康检查接口
     """
     log.info("接收到健康检查请求")
-    return jsonify({
-        'status': 'ok',
-        'message': '服务正常运行'
-    })
+    return api_response(data={'status': 'ok', 'message': '服务正常运行'})
 
 
 @app.route('/api/generate', methods=['POST'])
@@ -57,17 +106,11 @@ def generate_script():
         
         if not data:
             log.warning("请求体为空")
-            return jsonify({
-                'success': False,
-                'error': '请求体不能为空'
-            }), 400
+            return api_response(error='请求体不能为空', status=400)
         
         if not isinstance(data, dict):
             log.error(f"请求体格式错误，期望 dict，实际为 {type(data)}")
-            return jsonify({
-                'success': False,
-                'error': f'请求体格式错误，期望 JSON 对象，实际为 {type(data).__name__}'
-            }), 400
+            return api_response(error=f'请求体格式错误，期望 JSON 对象，实际为 {type(data).__name__}', status=400)
         
         # 获取参数
         images = data.get('images', [])
@@ -84,10 +127,7 @@ def generate_script():
         # 至少需要图片或文字之一
         if not images and not text:
             log.warning("未提供图片或文字")
-            return jsonify({
-                'success': False,
-                'error': '请上传图片或输入要求'
-            }), 400
+            return api_response(error='请上传图片或输入要求', status=400)
         
         # 调用 Agent 生成剧本
         log.info("开始调用 Agent 生成剧本")
@@ -104,18 +144,12 @@ def generate_script():
         log.info(f"DEBUG: agent.generate_script() returned type={type(result)}, is_dict={isinstance(result, dict)}")
         if not isinstance(result, dict):
             log.error(f"Agent 返回格式错误，期望 dict，实际为 {type(result)}: {repr(result)[:200]}")
-            return jsonify({
-                'success': False,
-                'error': f'Agent 返回格式错误: {type(result).__name__}'
-            }), 500
+            return api_response(error=f'Agent 返回格式错误: {type(result).__name__}', status=500)
         
         # 处理结果
         if 'error' in result:
             log.error(f"生成剧本失败：{result['error']}")
-            return jsonify({
-                'success': False,
-                'error': result['error']
-            }), 500
+            return api_response(error=result['error'], status=500)
         
         log.info("剧本生成成功，即将返回给前端")
         log.info(f"原始返回数据: {result}")
@@ -206,17 +240,11 @@ def generate_script():
         log.info(f"转换后的数据: synopsis长度={len(transformed_result['synopsis'])}, shots数量={len(transformed_result['shots'])}")
         
         # 返回正确格式的数据
-        return jsonify({
-            'success': True,
-            'result': transformed_result
-        })
+        return api_response(data=transformed_result)
         
     except Exception as e:
         log.error(f"生成剧本时发生异常：{str(e)}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'error': f'服务器错误：{str(e)}'
-        }), 500
+        return api_response(error=f'服务器错误：{str(e)}', status=500)
 
 
 @app.route('/api/clear', methods=['POST'])
@@ -228,18 +256,12 @@ def clear_history():
     log.info("接收到清空对话历史请求")
     
     try:
-        result = agent.clear_history()
+        agent.clear_history()
         log.info("对话历史已清空")
-        return jsonify({
-            'success': True,
-            'message': '对话历史已清空'
-        })
+        return api_response(data={'message': '对话历史已清空'})
     except Exception as e:
         log.error(f"清空对话历史失败：{str(e)}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return api_response(error=str(e), status=500)
 
 
 @app.route('/api/stop', methods=['POST'])
@@ -250,18 +272,100 @@ def stop_generation():
     log.info("接收到停止生成请求")
     
     try:
-        result = agent.cancel_generation()
+        agent.cancel_generation()
         log.info("已请求停止生成")
-        return jsonify({
-            'success': True,
-            'message': '已请求停止生成'
-        })
+        return api_response(data={'message': '已请求停止生成'})
     except Exception as e:
         log.error(f"停止生成失败：{str(e)}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return api_response(error=str(e), status=500)
+
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    """
+    聊天接口
+    
+    请求体:
+    {
+        "message": "用户消息",
+        "api_key": "API密钥（可选）",
+        "model_name": "模型名称（可选）"
+    }
+    
+    响应:
+    {
+        "success": true,
+        "data": {"response": "AI回复内容"} | "error": "错误信息"
+    }
+    """
+    log.info("接收到聊天请求")
+    
+    try:
+        data = request.get_json()
+        
+        if not data or not isinstance(data, dict):
+            log.warning("请求体为空或格式错误")
+            return api_response(error='请求体格式错误', status=400)
+        
+        message = data.get('message', '').strip()
+        api_key = data.get('api_key', '')
+        model_name = data.get('model_name', 'doubao-seed-1-6-vision-250815')
+        
+        if not message:
+            log.warning("消息内容为空")
+            return api_response(error='消息内容不能为空', status=400)
+        
+        log.info(f"聊天消息长度: {len(message)}")
+        
+        result = agent.chat(message, api_key, model_name)
+        
+        if 'error' in result:
+            log.error(f"聊天失败：{result['error']}")
+            return api_response(error=result['error'], status=500)
+        
+        log.info("聊天成功")
+        return api_response(data={'response': result['response']})
+    
+    except Exception as e:
+        log.error(f"聊天时发生异常：{str(e)}", exc_info=True)
+        return api_response(error=f'服务器错误：{str(e)}', status=500)
+
+
+@app.route('/api/update-script', methods=['POST'])
+def update_script():
+    """
+    更新当前剧本状态（场景记忆）
+    
+    请求体:
+    {
+        "synopsis": "剧情简介",
+        "characters": "人物设定",
+        "shots": []
+    }
+    
+    响应:
+    {
+        "success": true,
+        "data": {"message": "更新成功"} | "error": "错误信息"
+    }
+    """
+    log.info("接收到更新剧本状态请求")
+    
+    try:
+        data = request.get_json()
+        
+        if not data or not isinstance(data, dict):
+            log.warning("请求体为空或格式错误")
+            return api_response(error='请求体格式错误', status=400)
+        
+        agent.update_script(data)
+        
+        log.info("剧本状态更新成功")
+        return api_response(data={'message': '剧本状态已更新'})
+    
+    except Exception as e:
+        log.error(f"更新剧本时发生异常：{str(e)}", exc_info=True)
+        return api_response(error=f'服务器错误：{str(e)}', status=500)
 
 
 def run_server(host='127.0.0.1', port=5000, debug=False):

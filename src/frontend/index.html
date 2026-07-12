@@ -140,7 +140,7 @@
                 </div>
             </div>
 
-            <!-- 右侧：输出区域 -->
+            <!-- 中间：输出区域 -->
             <div class="output-section">
                 <!-- 加载状态 -->
                 <div class="loading-section" id="loading" style="display: none;">
@@ -211,6 +211,31 @@
                         <p id="error-message"></p>
                         <button class="btn-retry" id="retry-btn">重试</button>
                     </div>
+                </div>
+            </div>
+
+            <!-- 右侧：历史聊天框 -->
+            <div class="chat-section">
+                <div class="chat-header">
+                    <div class="chat-header-left">
+                        <span class="chat-icon">💬</span>
+                        <span class="chat-title">剧本修改助手</span>
+                    </div>
+                    <button class="btn-clear-chat" id="clear-chat">清空聊天</button>
+                </div>
+                
+                <div class="chat-messages" id="chat-messages">
+                    <div class="chat-welcome">
+                        <span class="welcome-icon">👋</span>
+                        <p>你好！我是你的剧本修改助手。</p>
+                        <p>你可以让我帮你修改剧本、调整分镜等。</p>
+                        <p>点击分镜后可以引用到这里进行修改。</p>
+                    </div>
+                </div>
+                
+                <div class="chat-input-area">
+                    <textarea id="chat-input" placeholder="输入你的修改要求..."></textarea>
+                    <button class="btn-send" id="send-chat-btn">发送</button>
                 </div>
             </div>
         </main>
