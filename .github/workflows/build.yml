@@ -299,6 +299,8 @@ jobs:
   release:
     needs: [build-windows, build-mac-arm64, build-mac-intel, build-linux]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
