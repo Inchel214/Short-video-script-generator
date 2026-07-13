@@ -4,11 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>短视频剧本生成器</title>
-    <link rel="stylesheet" href="styles.css?v=6">
+    <link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
     <div class="container">
-        <!-- 头部区域 -->
         <header class="header">
             <div class="logo">
                 <span class="logo-text">AI 主图&详情图</span>
@@ -20,7 +19,6 @@
             </button>
         </header>
 
-        <!-- 步骤指示器 -->
         <div class="steps-wrapper">
             <div class="steps">
                 <div class="step" data-step="1">
@@ -65,92 +63,99 @@
             </div>
         </div>
 
-        <!-- 主内容区域 -->
         <main class="main-content">
-            <!-- 左侧：输入区域 -->
-            <div class="input-section">
-                <!-- API 配置 -->
-                <div class="config-section">
-                    <h3>API 配置</h3>
-                    <div class="config-item">
-                        <label for="api-key">
-                            API密钥
-                            <button type="button" class="toggle-password-btn" id="toggle-api-key-visibility" aria-label="切换 API 密钥显示" aria-pressed="false">
-                                <svg class="eye-icon eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                </svg>
-                                <svg class="eye-icon eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M2 12 Q7 16 12 16 Q17 16 22 12"></path>
-                                    <line x1="6" y1="16" x2="6" y2="19"></line>
-                                    <line x1="10" y1="17" x2="10" y2="20"></line>
-                                    <line x1="14" y1="17" x2="14" y2="20"></line>
-                                    <line x1="18" y1="16" x2="18" y2="19"></line>
-                                </svg>
-                            </button>
-                        </label>
-                        <div class="input-with-toggle">
-                            <input type="password" id="api-key" placeholder="输入火山引擎API密钥">
+            <div class="chat-section">
+                <div class="config-panel">
+                    <div class="config-section">
+                        <h3>API 配置</h3>
+                        <div class="config-item">
+                            <label for="api-key">
+                                API密钥
+                                <button type="button" class="toggle-password-btn" id="toggle-api-key-visibility" aria-label="切换 API 密钥显示" aria-pressed="false">
+                                    <svg class="eye-icon eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                    <svg class="eye-icon eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M2 12 Q7 16 12 16 Q17 16 22 12"></path>
+                                        <line x1="6" y1="16" x2="6" y2="19"></line>
+                                        <line x1="10" y1="17" x2="10" y2="20"></line>
+                                        <line x1="14" y1="17" x2="14" y2="20"></line>
+                                        <line x1="18" y1="16" x2="18" y2="19"></line>
+                                    </svg>
+                                </button>
+                            </label>
+                            <div class="input-with-toggle">
+                                <input type="password" id="api-key" placeholder="输入火山引擎API密钥">
+                            </div>
+                        </div>
+                        <div class="config-item">
+                            <label for="model-name">模型名称</label>
+                            <input type="text" id="model-name" value="doubao-seed-1-6-vision-250815">
                         </div>
                     </div>
-                    <div class="config-item">
-                        <label for="model-name">模型名称</label>
-                        <input type="text" id="model-name" value="doubao-seed-1-6-vision-250815">
-                    </div>
-                </div>
 
-                <!-- 图片上传 -->
-                <div class="upload-section">
-                    <h3>上传图片</h3>
-                    <div class="upload-area" id="upload-area">
-                        <div class="upload-content">
-                            <span style="font-size: 48px; opacity: 0.5;">📷</span>
-                            <p>拖入图片或点击选择</p>
-                            <p class="upload-hint">支持 JPG、PNG 格式</p>
+                    <div class="upload-section">
+                        <h3>上传图片</h3>
+                        <div class="upload-area" id="upload-area">
+                            <div class="upload-content">
+                                <span style="font-size: 36px; opacity: 0.5;">📷</span>
+                                <p>拖入图片或点击选择</p>
+                                <p class="upload-hint">支持 JPG、PNG 格式</p>
+                            </div>
+                            <input type="file" id="file-input" multiple accept="image/*" hidden>
                         </div>
-                        <input type="file" id="file-input" multiple accept="image/*" hidden>
+
+                        <div class="preview-section" id="preview-section" style="display: none;">
+                            <h4>已上传图片 <span id="image-count">0</span> 张</h4>
+                            <div class="image-preview" id="image-preview"></div>
+                            <button class="btn-clear" id="clear-images">清空图片</button>
+                        </div>
                     </div>
-                    
-                    <!-- 已上传图片预览 -->
-                    <div class="preview-section" id="preview-section" style="display: none;">
-                        <h4>已上传图片 <span id="image-count">0</span> 张</h4>
-                        <div class="image-preview" id="image-preview"></div>
-                        <button class="btn-clear" id="clear-images">清空图片</button>
+
+                    <div class="shots-count-section">
+                        <h3>预期生成镜头数量</h3>
+                        <input type="number" id="shots-count-input" min="1" max="10" placeholder="不填则由AI自动判断">
+                    </div>
+
+                    <div class="action-section">
+                        <button class="btn-generate" id="generate-btn">
+                            <span class="generate-icon">✨</span>
+                            <span class="generate-text">去生成</span>
+                        </button>
                     </div>
                 </div>
 
-                <!-- 文字输入 -->
-                <div class="text-section">
-                    <h3>输入要求</h3>
-                    <textarea id="text-input" placeholder="例如：生成一个30秒的温馨风格vlog剧本..."></textarea>
+                <div class="chat-header">
+                    <div class="chat-header-left">
+                        <span class="chat-icon">💬</span>
+                        <span class="chat-title">剧本修改助手</span>
+                    </div>
+                    <button class="btn-clear-chat" id="clear-chat">清空聊天</button>
                 </div>
 
-                <!-- 镜头数量输入 -->
-                <div class="shots-count-section">
-                    <h3>预期生成镜头数量</h3>
-                    <input type="number" id="shots-count-input" min="1" max="10" placeholder="不填则由AI自动判断">
+                <div class="chat-messages" id="chat-messages">
+                    <div class="chat-welcome">
+                        <span class="welcome-icon">👋</span>
+                        <p>你好！我是你的剧本助手。</p>
+                        <p>上传图片后输入要求即可生成剧本。</p>
+                        <p>点击分镜后可以引用到这里进行修改。</p>
+                    </div>
                 </div>
 
-                <!-- 生成按钮 -->
-                <div class="action-section">
-                    <button class="btn-generate" id="generate-btn">
-                        <span class="generate-icon">✨</span>
-                        <span class="generate-text">去生成</span>
-                    </button>
+                <div class="chat-input-area">
+                    <div id="chat-input" class="chat-input-editable" contenteditable="true" placeholder="输入剧本要求（生成）或修改要求（引用后修改）..."></div>
+                    <button class="btn-send" id="send-chat-btn">发送</button>
                 </div>
             </div>
 
-            <!-- 中间：输出区域 -->
             <div class="output-section">
-                <!-- 加载状态 -->
                 <div class="loading-section" id="loading" style="display: none;">
                     <div class="loading-spinner"></div>
                     <p>AI 正在生成剧本，请稍候...</p>
                 </div>
 
-                <!-- 结果显示 -->
                 <div class="result-section" id="result-section">
-                    <!-- 确认规划标题 -->
                     <div class="result-header">
                         <div class="result-header-left">
                             <div class="result-header-icon">
@@ -163,7 +168,6 @@
                         </div>
                     </div>
 
-                    <!-- 剧情简介 -->
                     <div class="result-body">
                         <div class="result-card">
                             <div class="result-card-title">
@@ -172,7 +176,6 @@
                                     <span class="result-card-main-title">剧情简介</span>
                                     <span class="result-card-sub-title">剧情简介和人物设定</span>
                                 </div>
-                                <img class="result-card-edit-icon" src="https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937478818/2c03/0821/5b7f/499e02d41a7ba6618507de66bb4780f8.png" alt="编辑">
                                 <img class="arrow-icon" src="https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937478858/c347/651d/afa5/bb9fede252f974bddb880ec051aef1e3.png" alt="展开">
                             </div>
                             <div class="result-card-content">
@@ -183,7 +186,6 @@
                         </div>
                     </div>
 
-                    <!-- 分镜生成标题 -->
                     <div class="shots-header">
                         <div class="shots-header-left">
                             <img src="https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937478909/b6c5/b104/a247/a5086ce6ff3d02b09e8319554662c0d5.png" alt="">
@@ -192,19 +194,16 @@
                         <span class="shots-count">共 <span id="shot-count">0</span> 个分镜</span>
                     </div>
 
-                    <!-- 分镜列表 -->
                     <div class="shots-list" id="shots-list">
                         <p class="placeholder">分镜内容将显示在这里...</p>
                     </div>
 
-                    <!-- 操作按钮区域 -->
                     <div class="action-buttons">
                         <button class="btn-export" id="export-btn">📄 导出剧本</button>
                         <button class="btn-clear-history" id="clear-history">清空对话历史</button>
                     </div>
                 </div>
 
-                <!-- 错误提示 -->
                 <div class="error-section" id="error-section" style="display: none;">
                     <div class="error-content">
                         <h3>出错了</h3>
@@ -213,54 +212,27 @@
                     </div>
                 </div>
             </div>
-
-            <!-- 右侧：历史聊天框 -->
-            <div class="chat-section">
-                <div class="chat-header">
-                    <div class="chat-header-left">
-                        <span class="chat-icon">💬</span>
-                        <span class="chat-title">剧本修改助手</span>
-                    </div>
-                    <button class="btn-clear-chat" id="clear-chat">清空聊天</button>
-                </div>
-                
-                <div class="chat-messages" id="chat-messages">
-                    <div class="chat-welcome">
-                        <span class="welcome-icon">👋</span>
-                        <p>你好！我是你的剧本修改助手。</p>
-                        <p>你可以让我帮你修改剧本、调整分镜等。</p>
-                        <p>点击分镜后可以引用到这里进行修改。</p>
-                    </div>
-                </div>
-                
-                <div class="chat-input-area">
-                    <textarea id="chat-input" placeholder="输入你的修改要求..."></textarea>
-                    <button class="btn-send" id="send-chat-btn">发送</button>
-                </div>
-            </div>
         </main>
 
-        <!-- 页脚 -->
         <footer class="footer">
             <p>短视频剧本生成器 | 基于火山引擎大模型</p>
         </footer>
-    </div>
 
-    <!-- 自定义弹窗 -->
-    <div class="custom-dialog-overlay" id="custom-dialog-overlay" style="display: none;">
-        <div class="custom-dialog">
-            <div class="custom-dialog-content">
-                <div class="custom-dialog-icon" id="custom-dialog-icon">📋</div>
-                <div class="custom-dialog-title" id="custom-dialog-title">提示</div>
-                <div class="custom-dialog-message" id="custom-dialog-message"></div>
-            </div>
-            <div class="custom-dialog-buttons">
-                <button class="btn-dialog-cancel" id="btn-dialog-cancel">取消</button>
-                <button class="btn-dialog-confirm" id="btn-dialog-confirm">确定</button>
+        <div class="custom-dialog-overlay" id="custom-dialog-overlay" style="display: none;">
+            <div class="custom-dialog">
+                <div class="custom-dialog-content">
+                    <div class="custom-dialog-icon" id="custom-dialog-icon">📋</div>
+                    <div class="custom-dialog-title" id="custom-dialog-title">提示</div>
+                    <div class="custom-dialog-message" id="custom-dialog-message"></div>
+                </div>
+                <div class="custom-dialog-buttons">
+                    <button class="btn-dialog-cancel" id="btn-dialog-cancel">取消</button>
+                    <button class="btn-dialog-confirm" id="btn-dialog-confirm">确定</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <script src="app.js"></script>
+        <script src="app.js"></script>
+    </div>
 </body>
 </html>

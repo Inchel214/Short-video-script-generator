@@ -8,15 +8,15 @@ const API_BASE_URL = 'http://127.0.0.1:5000/api';
 
 // 状态管理
 const state = {
-    images: [],          // base64 编码的图片列表
-    isGenerating: false, // 是否正在生成
-    currentStep: 1,       // 当前步骤
+    images: [],
+    isGenerating: false,
+    currentStep: 1,
     synopsisExpanded: false,
-    lastResult: null,     // 上次生成的结果，用于页面切换时恢复
-    abortController: null // 用于取消请求的控制器
+    lastResult: null,
+    abortController: null,
+    modifiedShots: {}
 };
 
-// 从 localStorage 恢复数据
 function loadStateFromStorage() {
     const saved = localStorage.getItem('scriptGeneratorResult');
     if (saved) {
@@ -33,7 +33,6 @@ function autoResizeTextarea(textarea) {
     textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
 }
 
-// 自定义弹窗函数
 function showCustomAlert(message, icon = '📋', title = '提示') {
     return new Promise((resolve) => {
         const overlay = document.getElementById('custom-dialog-overlay');
@@ -107,7 +106,6 @@ function showCustomConfirm(message, icon = '❓', title = '确认') {
     });
 }
 
-// 保存结果到 localStorage
 function saveStateToStorage() {
     if (state.lastResult) {
         localStorage.setItem('scriptGeneratorResult', JSON.stringify(state.lastResult));
@@ -115,14 +113,11 @@ function saveStateToStorage() {
     }
 }
 
-// DOM 元素
 const elements = {
-    // 配置
     apiKeyInput: document.getElementById('api-key'),
     apiKeyToggleBtn: document.getElementById('toggle-api-key-visibility'),
     modelNameInput: document.getElementById('model-name'),
     
-    // 上传
     uploadArea: document.getElementById('upload-area'),
     fileInput: document.getElementById('file-input'),
     previewSection: document.getElementById('preview-section'),
@@ -130,17 +125,13 @@ const elements = {
     imageCount: document.getElementById('image-count'),
     clearImagesBtn: document.getElementById('clear-images'),
     
-    // 输入
-    textInput: document.getElementById('text-input'),
     shotsCountInput: document.getElementById('shots-count-input'),
     
-    // 按钮
     generateBtn: document.getElementById('generate-btn'),
     clearHistoryBtn: document.getElementById('clear-history'),
     retryBtn: document.getElementById('retry-btn'),
     exportBtn: document.getElementById('export-btn'),
     
-    // 结果
     loadingSection: document.getElementById('loading'),
     resultSection: document.getElementById('result-section'),
     errorSection: document.getElementById('error-section'),
@@ -149,79 +140,57 @@ const elements = {
     shotsList: document.getElementById('shots-list'),
     shotCount: document.getElementById('shot-count'),
     
-    // 步骤
     steps: document.querySelectorAll('.step'),
     
-    // 更新
     updateBtn: document.getElementById('update-btn'),
     
-    // 聊天
     chatMessages: document.getElementById('chat-messages'),
     chatInput: document.getElementById('chat-input'),
     sendChatBtn: document.getElementById('send-chat-btn'),
     clearChatBtn: document.getElementById('clear-chat')
 };
 
-/**
- * 初始化
- */
 function init() {
     console.log('初始化前端应用');
     setupEventListeners();
     loadConfig();
-    // 从 localStorage 恢复数据
     loadStateFromStorage();
-    // 如果有恢复的结果，显示它
     if (state.lastResult) {
         displayResult(state.lastResult);
     }
-    // 初始步骤1：输入
     setStep(1);
 }
 
-/**
- * 设置事件监听
- */
 function setupEventListeners() {
-    // 上传区域点击
     elements.uploadArea.addEventListener('click', () => {
         elements.fileInput.click();
     });
     
-    // 文件选择
     elements.fileInput.addEventListener('change', handleFileSelect);
     
-    // 拖拽上传
     elements.uploadArea.addEventListener('dragover', handleDragOver);
     elements.uploadArea.addEventListener('dragleave', handleDragLeave);
     elements.uploadArea.addEventListener('drop', handleDrop);
     
-    // 页面可见性变化时保持结果显示
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
-            // 尝试从 localStorage 恢复（如果内存中没有）
             if (!state.lastResult) {
                 loadStateFromStorage();
             }
-            // 页面重新可见时，确保结果区域显示
             if (state.lastResult) {
                 elements.resultSection.style.display = 'block';
                 elements.errorSection.style.display = 'none';
-                // 恢复结果显示
                 displayResult(state.lastResult);
             }
         }
     });
     
-    // 切换 API 密钥显示
     if (elements.apiKeyToggleBtn) {
         elements.apiKeyToggleBtn.addEventListener('click', toggleApiKeyVisibility);
     }
 
-    // 清空图片
     elements.clearImagesBtn.addEventListener('click', clearImages);
     
-    // 生成剧本
     elements.generateBtn.addEventListener('click', () => {
         if (state.isGenerating) {
             stopGeneration();
@@ -230,27 +199,21 @@ function setupEventListeners() {
         }
     });
     
-    // 清空历史
     elements.clearHistoryBtn.addEventListener('click', clearHistory);
     
-    // 重试
     elements.retryBtn.addEventListener('click', () => {
         hideError();
         generateScript();
     });
     
-    // 导出剧本
     elements.exportBtn.addEventListener('click', exportScript);
     
-    // 更新按钮
     if (elements.updateBtn) {
         elements.updateBtn.addEventListener('click', handleUpdateClick);
     }
     
-    // 发送聊天消息
     elements.sendChatBtn.addEventListener('click', sendChatMessage);
     
-    // 聊天输入框回车发送
     elements.chatInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -258,18 +221,12 @@ function setupEventListeners() {
         }
     });
     
-    // 清空聊天
     elements.clearChatBtn.addEventListener('click', clearChat);
     
-    // Electron IPC 监听更新事件
     setupElectronUpdateListener();
 }
 
-/**
- * 加载配置
- */
 function loadConfig() {
-    // 从 localStorage 加载 API 配置
     const savedApiKey = localStorage.getItem('api_key');
     const savedModelName = localStorage.getItem('model_name');
     
@@ -282,9 +239,6 @@ function loadConfig() {
     }
 }
 
-/**
- * 切换 API 密钥显示状态
- */
 function toggleApiKeyVisibility() {
     if (!elements.apiKeyInput || !elements.apiKeyToggleBtn) {
         return;
@@ -295,17 +249,11 @@ function toggleApiKeyVisibility() {
     elements.apiKeyToggleBtn.setAttribute('aria-pressed', String(isPassword));
 }
 
-/**
- * 保存配置
- */
 function saveConfig() {
     localStorage.setItem('api_key', elements.apiKeyInput.value);
     localStorage.setItem('model_name', elements.modelNameInput.value);
 }
 
-/**
- * 处理文件选择
- */
 function handleFileSelect(event) {
     const files = event.target.files;
     if (files.length > 0) {
@@ -313,9 +261,6 @@ function handleFileSelect(event) {
     }
 }
 
-/**
- * 处理拖拽悬停
- */
 function handleDragOver(event) {
     event.preventDefault();
     event.stopPropagation();
@@ -323,9 +268,6 @@ function handleDragOver(event) {
     elements.uploadArea.style.background = '#f8f8ff';
 }
 
-/**
- * 处理拖拽离开
- */
 function handleDragLeave(event) {
     event.preventDefault();
     event.stopPropagation();
@@ -333,9 +275,6 @@ function handleDragLeave(event) {
     elements.uploadArea.style.background = 'white';
 }
 
-/**
- * 处理文件拖放
- */
 function handleDrop(event) {
     event.preventDefault();
     event.stopPropagation();
@@ -348,9 +287,6 @@ function handleDrop(event) {
     }
 }
 
-/**
- * 处理文件
- */
 async function processFiles(files) {
     console.log('开始处理文件，数量:', files.length);
     
@@ -374,9 +310,6 @@ async function processFiles(files) {
     saveConfig();
 }
 
-/**
- * 文件转 Base64
- */
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -386,22 +319,15 @@ function fileToBase64(file) {
     });
 }
 
-/**
- * 更新图片预览
- */
 function updateImagePreview() {
     const count = state.images.length;
     
-    // 更新计数
     elements.imageCount.textContent = count;
     
-    // 显示/隐藏预览区域
     elements.previewSection.style.display = count > 0 ? 'block' : 'none';
     
-    // 清空预览
     elements.imagePreview.innerHTML = '';
     
-    // 添加预览图片
     state.images.forEach((base64, index) => {
         const item = document.createElement('div');
         item.className = 'image-item';
@@ -410,7 +336,6 @@ function updateImagePreview() {
             <button class="delete-btn" data-index="${index}">×</button>
         `;
         
-        // 删除按钮事件
         item.querySelector('.delete-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             const idx = parseInt(e.target.dataset.index);
@@ -421,18 +346,12 @@ function updateImagePreview() {
     });
 }
 
-/**
- * 删除图片
- */
 function deleteImage(index) {
     console.log('删除图片，索引:', index);
     state.images.splice(index, 1);
     updateImagePreview();
 }
 
-/**
- * 清空图片
- */
 function clearImages() {
     console.log('清空所有图片');
     state.images = [];
@@ -440,25 +359,12 @@ function clearImages() {
     updateImagePreview();
 }
 
-/**
- * 生成剧本
- */
 async function generateScript() {
-    // 收集参数
     const apiKey = elements.apiKeyInput.value.trim();
     const modelName = elements.modelNameInput.value.trim();
-    const text = elements.textInput.value.trim();
+    const text = elements.chatInput.innerText.trim();
     const shotsCount = elements.shotsCountInput.value.trim();
 
-    console.log('=== DEBUG: 收集参数 ===');
-    console.log('shotsCountInput raw value:', elements.shotsCountInput.value);
-    console.log('shotsCountInput type:', typeof elements.shotsCountInput.value);
-    console.log('shotsCount after trim:', shotsCount);
-    console.log('shotsCount length:', shotsCount.length);
-    console.log('parseInt result:', shotsCount ? parseInt(shotsCount) : null);
-    console.log('=======================');
-
-    // 验证输入
     if (!apiKey) {
         showError('请输入 API 密钥');
         return;
@@ -469,7 +375,6 @@ async function generateScript() {
         return;
     }
 
-    // 开始生成
     state.isGenerating = true;
     state.abortController = new AbortController();
     
@@ -486,7 +391,6 @@ async function generateScript() {
     showLoading();
     updateGenerateBtnState();
 
-    // 步骤2：分析中
     setStep(2);
 
     console.log('开始生成剧本');
@@ -503,10 +407,6 @@ async function generateScript() {
             model_name: modelName,
             shots_count: shotsCount ? parseInt(shotsCount) : null
         };
-        console.log('=== DEBUG: 请求体 ===');
-        console.log('shots_count in request:', requestBody.shots_count);
-        console.log('requestBody:', JSON.stringify(requestBody, null, 2));
-        console.log('=======================');
 
         const response = await fetch(`${API_BASE_URL}/generate`, {
             method: 'POST',
@@ -555,9 +455,6 @@ async function generateScript() {
     }
 }
 
-/**
- * 停止生成
- */
 async function stopGeneration() {
     console.log('停止生成');
     
@@ -574,9 +471,6 @@ async function stopGeneration() {
     }
 }
 
-/**
- * 更新生成按钮状态
- */
 function updateGenerateBtnState() {
     const generateIcon = elements.generateBtn.querySelector('.generate-icon');
     const generateText = elements.generateBtn.querySelector('.generate-text');
@@ -600,30 +494,20 @@ function updateGenerateBtnState() {
     }
 }
 
-/**
- * 显示加载状态
- */
 function showLoading() {
     elements.loadingSection.style.display = 'flex';
     elements.resultSection.style.display = 'none';
     elements.errorSection.style.display = 'none';
 }
 
-/**
- * 隐藏加载状态
- */
 function hideLoading() {
     elements.loadingSection.style.display = 'none';
     elements.generateBtn.disabled = false;
-    // 恢复结果区域显示
     if (state.lastResult) {
         elements.resultSection.style.display = 'block';
     }
 }
 
-/**
- * 显示错误
- */
 function showError(message) {
     console.error('错误:', message);
     elements.errorSection.style.display = 'block';
@@ -631,16 +515,10 @@ function showError(message) {
     elements.errorMessage.textContent = message;
 }
 
-/**
- * 隐藏错误
- */
 function hideError() {
     elements.errorSection.style.display = 'none';
 }
 
-/**
- * 设置步骤
- */
 function setStep(step) {
     state.currentStep = step;
     elements.steps.forEach((stepEl, index) => {
@@ -648,21 +526,15 @@ function setStep(step) {
         stepEl.classList.remove('pending', 'active', 'completed');
 
         if (stepNum < step) {
-            // 已完成的步骤
             stepEl.classList.add('completed');
         } else if (stepNum === step) {
-            // 当前进行中的步骤
             stepEl.classList.add('active');
         } else {
-            // 待处理的步骤
             stepEl.classList.add('pending');
         }
     });
 }
 
-/**
- * 显示结果
- */
 function tryParseJsonString(value) {
     if (typeof value !== 'string') return value;
     const trimmed = value.trim();
@@ -775,27 +647,28 @@ function displayResult(result) {
         elements.synopsisSection.innerHTML = '<p class="placeholder">暂无内容</p>';
     }
     
-    // 初始状态：剧情简介收起
     state.synopsisExpanded = false;
     elements.synopsisSection.classList.remove('expanded');
     
-    // 设置剧情简介的展开/收起事件
     const resultCards = document.querySelectorAll('.result-card');
     resultCards.forEach((card, index) => {
         const titleEl = card.querySelector('.result-card-title');
         const arrowIcon = titleEl.querySelector('.arrow-icon');
+        const contentEl = card.querySelector('.result-card-content');
         
         if (index === 0) {
-            // 剧情简介
             titleEl.onclick = () => {
                 state.synopsisExpanded = !state.synopsisExpanded;
-                elements.synopsisSection.classList.toggle('expanded', state.synopsisExpanded);
+                contentEl.classList.toggle('expanded', state.synopsisExpanded);
                 arrowIcon.classList.toggle('expanded', state.synopsisExpanded);
             };
+            
+            state.synopsisExpanded = true;
+            contentEl.classList.add('expanded');
+            arrowIcon.classList.add('expanded');
         }
     });
     
-    // 显示分镜列表
     elements.shotCount.textContent = shots.length;
     elements.shotsList.innerHTML = '';
     
@@ -817,13 +690,11 @@ function displayResult(result) {
     elements.resultSection.style.display = 'block';
 }
 
-/**
- * 创建分镜项
- */
 function createShotItem(shot, index) {
     const shotEl = document.createElement('div');
     shotEl.className = 'shot-item';
     shotEl.dataset.id = shot.id || index + 1;
+    shotEl.dataset.index = index;
     
     const number = index + 1;
     const duration = shot['时长'] || shot.duration || '';
@@ -844,16 +715,10 @@ function createShotItem(shot, index) {
         soundEffect ? `音效建议：${soundEffect}` : ''
     ].filter(Boolean).join('\n');
     const descriptionText = fullDescription || '';
-    const isExpanded = true; // 默认展开
+    const isExpanded = true;
     
-    // 编辑图标
-    const editIcon = 'https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937478818/2c03/0821/5b7f/499e02d41a7ba6618507de66bb4780f8.png';
-    // 删除图标
     const deleteIcon = 'https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937475560/732d/78fa/0bfa/ef69a3f36529bf83fb2a51e1081c1b24.png';
-    // 箭头图标
     const arrowIcon = 'https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937478858/c347/651d/afa5/bb9fede252f974bddb880ec051aef1e3.png';
-    // 引用图标
-    const referenceIcon = 'https://seal-img.nos-jd.163yun.com/obj/w5rCgMKVw6DCmGzCmsK-/80937478818/2c03/0821/5b7f/499e02d41a7ba6618507de66bb4780f8.png';
     
     shotEl.innerHTML = `
         <div class="shot-item-header">
@@ -861,10 +726,10 @@ function createShotItem(shot, index) {
             <input type="text" class="shot-title-input" value="${escapeHtml(title)}">
             <div class="shot-actions">
                 <span class="shot-action-btn" data-action="reference" title="引用到聊天">
-                    <img src="${referenceIcon}" alt="引用">
-                </span>
-                <span class="shot-action-btn" data-action="edit" title="复制">
-                    <img src="${editIcon}" alt="编辑">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                        <path d="m12 15-5.5 5.5"/>
+                    </svg>
                 </span>
                 <span class="shot-action-btn" data-action="delete" title="删除">
                     <img src="${deleteIcon}" alt="删除">
@@ -877,17 +742,14 @@ function createShotItem(shot, index) {
         </div>
     `;
     
-    // 事件处理
     const header = shotEl.querySelector('.shot-item-header');
     const expandArrow = shotEl.querySelector('.shot-expand-arrow');
     const content = shotEl.querySelector('.shot-item-content');
     const referenceBtn = shotEl.querySelector('[data-action="reference"]');
-    const editBtn = shotEl.querySelector('[data-action="edit"]');
     const deleteBtn = shotEl.querySelector('[data-action="delete"]');
     const titleInput = shotEl.querySelector('.shot-title-input');
     const descInput = shotEl.querySelector('.shot-description-input');
     
-    // 点击行头或箭头切换展开/收起
     header.onclick = (e) => {
         if (e.target === titleInput) return;
         toggleShotExpand(shotEl);
@@ -898,25 +760,11 @@ function createShotItem(shot, index) {
         toggleShotExpand(shotEl);
     };
     
-    // 引用按钮 - 引用到聊天
     referenceBtn.onclick = (e) => {
         e.stopPropagation();
         referenceShotToChat(number, title, descriptionText);
-        showCustomAlert('已将分镜引用到聊天框', '📝');
     };
     
-    // 编辑按钮 - 复制内容
-    editBtn.onclick = async (e) => {
-        e.stopPropagation();
-        const text = `标题: ${titleInput.value}\n\n描述: ${descInput.value}`;
-        navigator.clipboard.writeText(text).then(async () => {
-            await showCustomAlert('已复制到剪贴板', '📋');
-        }).catch(err => {
-            console.error('复制失败:', err);
-        });
-    };
-    
-    // 删除按钮
     deleteBtn.onclick = (e) => {
         e.stopPropagation();
         showDeleteConfirm(() => {
@@ -924,16 +772,122 @@ function createShotItem(shot, index) {
         });
     };
     
+    titleInput.addEventListener('input', () => {
+        updateShotData(index, 'title', titleInput.value);
+    });
+    
     descInput.addEventListener('input', () => {
         autoResizeTextarea(descInput);
+        updateShotData(index, 'description', descInput.value);
     });
     
     return shotEl;
 }
 
-/**
- * 切换分镜展开/收起
- */
+function updateShotData(index, field, value) {
+    if (!state.lastResult || !state.lastResult.shots || !state.lastResult.shots[index]) {
+        return;
+    }
+    
+    const shot = state.lastResult.shots[index];
+    
+    if (field === 'title') {
+        shot.title = value;
+        shot['主题'] = value;
+    } else if (field === 'description') {
+        const parts = parseDescription(value);
+        shot.duration = parts.duration || shot.duration || '';
+        shot['时长'] = parts.duration || shot['时长'] || '';
+        shot.scene = parts.scene || shot.scene || '';
+        shot['景别'] = parts.scene || shot['景别'] || '';
+        shot.description = parts.description || shot.description || '';
+        shot['画面描述'] = parts.description || shot['画面描述'] || '';
+        shot.camera = parts.camera || shot.camera || '';
+        shot['运镜方式'] = parts.camera || shot['运镜方式'] || '';
+        shot.dialogue = parts.dialogue || shot.dialogue || '';
+        shot['旁白/对话'] = parts.dialogue || shot['旁白/对话'] || '';
+        shot.soundEffect = parts.soundEffect || shot.soundEffect || '';
+        shot['音效建议'] = parts.soundEffect || shot['音效建议'] || '';
+    }
+    
+    saveStateToStorage();
+}
+
+function parseDescription(text) {
+    const parts = {};
+    const lines = text.split('\n');
+    
+    lines.forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('时长：')) {
+            parts.duration = trimmed.replace('时长：', '');
+        } else if (trimmed.startsWith('景别：')) {
+            parts.scene = trimmed.replace('景别：', '');
+        } else if (trimmed.startsWith('画面描述：')) {
+            parts.description = trimmed.replace('画面描述：', '');
+        } else if (trimmed.startsWith('运镜方式：')) {
+            parts.camera = trimmed.replace('运镜方式：', '');
+        } else if (trimmed.startsWith('旁白/对话：')) {
+            parts.dialogue = trimmed.replace('旁白/对话：', '');
+        } else if (trimmed.startsWith('音效建议：')) {
+            parts.soundEffect = trimmed.replace('音效建议：', '');
+        }
+    });
+    
+    return parts;
+}
+
+function updateShotFromChat(shotIndex, updatedData) {
+    const shotItems = elements.shotsList.querySelectorAll('.shot-item');
+    const shotEl = shotItems[shotIndex - 1];
+    
+    if (!shotEl) {
+        console.warn(`未找到分镜 ${shotIndex}`);
+        return;
+    }
+    
+    const titleInput = shotEl.querySelector('.shot-title-input');
+    const descInput = shotEl.querySelector('.shot-description-input');
+    
+    if (updatedData.title && titleInput) {
+        titleInput.value = updatedData.title;
+    }
+    
+    if (updatedData.description && descInput) {
+        descInput.value = updatedData.description;
+        autoResizeTextarea(descInput);
+    }
+    
+    if (state.lastResult && state.lastResult.shots && state.lastResult.shots[shotIndex - 1]) {
+        const shot = state.lastResult.shots[shotIndex - 1];
+        
+        if (updatedData.title) {
+            shot.title = updatedData.title;
+            shot['主题'] = updatedData.title;
+        }
+        
+        if (updatedData.description) {
+            const parts = parseDescription(updatedData.description);
+            shot.duration = parts.duration || shot.duration || '';
+            shot['时长'] = parts.duration || shot['时长'] || '';
+            shot.scene = parts.scene || shot.scene || '';
+            shot['景别'] = parts.scene || shot['景别'] || '';
+            shot.description = parts.description || shot.description || '';
+            shot['画面描述'] = parts.description || shot['画面描述'] || '';
+            shot.camera = parts.camera || shot.camera || '';
+            shot['运镜方式'] = parts.camera || shot['运镜方式'] || '';
+            shot.dialogue = parts.dialogue || shot.dialogue || '';
+            shot['旁白/对话'] = parts.dialogue || shot['旁白/对话'] || '';
+            shot.soundEffect = parts.soundEffect || shot.soundEffect || '';
+            shot['音效建议'] = parts.soundEffect || shot['音效建议'] || '';
+        }
+        
+        saveStateToStorage();
+    }
+    
+    console.log(`分镜 ${shotIndex} 已更新`);
+}
+
 function toggleShotExpand(shotEl) {
     const arrow = shotEl.querySelector('.shot-expand-arrow');
     const content = shotEl.querySelector('.shot-item-content');
@@ -942,22 +896,24 @@ function toggleShotExpand(shotEl) {
     arrow.classList.toggle('expanded', isExpanded);
 }
 
-/**
- * 删除分镜
- */
 function deleteShot(shotEl) {
+    const index = parseInt(shotEl.dataset.index);
     shotEl.remove();
     
-    // 更新分镜计数
+    if (state.lastResult && state.lastResult.shots) {
+        state.lastResult.shots.splice(index, 1);
+        saveStateToStorage();
+    }
+    
     const shots = elements.shotsList.querySelectorAll('.shot-item');
     elements.shotCount.textContent = shots.length;
     
-    // 重新编号
-    shots.forEach((shot, index) => {
+    shots.forEach((shot, i) => {
         const numberEl = shot.querySelector('.shot-number');
         if (numberEl) {
-            numberEl.textContent = index + 1;
+            numberEl.textContent = i + 1;
         }
+        shot.dataset.index = i;
     });
     
     if (shots.length === 0) {
@@ -965,9 +921,6 @@ function deleteShot(shotEl) {
     }
 }
 
-/**
- * 显示删除确认
- */
 function showDeleteConfirm(onConfirm) {
     const overlay = document.createElement('div');
     overlay.className = 'confirm-overlay';
@@ -1002,18 +955,12 @@ function showDeleteConfirm(onConfirm) {
     };
 }
 
-/**
- * HTML 转义
- */
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
-/**
- * 清空历史
- */
 async function clearHistory() {
     const confirmed = await showCustomConfirm('确定要清空对话历史吗？', '⚠️');
     if (!confirmed) return;
@@ -1035,9 +982,6 @@ async function clearHistory() {
     }
 }
 
-/**
- * 导出剧本为 TXT 文件
- */
 function exportScript() {
     if (!state.lastResult) {
         showCustomAlert('没有可导出的剧本，请先生成剧本', '📝');
@@ -1184,8 +1128,6 @@ async function handleUpdateClick() {
     }
 }
 
-// 聊天功能
-
 function addChatMessage(message, isUser) {
     const messageEl = document.createElement('div');
     messageEl.className = `chat-message ${isUser ? 'user' : 'assistant'}`;
@@ -1199,7 +1141,9 @@ function addChatMessage(message, isUser) {
     
     const bubble = document.createElement('div');
     bubble.className = 'chat-bubble';
-    bubble.textContent = message;
+    
+    const highlightedMessage = message.replace(/(\[引用:\d+\])/g, '<span class="reference-tag">$1</span>');
+    bubble.innerHTML = highlightedMessage;
     
     const time = document.createElement('div');
     time.className = 'chat-time';
@@ -1211,6 +1155,11 @@ function addChatMessage(message, isUser) {
     
     messageEl.appendChild(avatar);
     messageEl.appendChild(contentWrapper);
+    
+    const welcomeEl = elements.chatMessages.querySelector('.chat-welcome');
+    if (welcomeEl) {
+        welcomeEl.style.display = 'none';
+    }
     
     elements.chatMessages.appendChild(messageEl);
     
@@ -1224,7 +1173,7 @@ function scrollToBottom() {
 }
 
 async function sendChatMessage() {
-    const message = elements.chatInput.value.trim();
+    const message = elements.chatInput.innerText.trim();
     if (!message) return;
     
     const apiKey = elements.apiKeyInput.value.trim();
@@ -1233,10 +1182,14 @@ async function sendChatMessage() {
         return;
     }
     
-    elements.chatInput.value = '';
+    elements.chatInput.innerHTML = '';
     elements.sendChatBtn.disabled = true;
     
     addChatMessage(message, true);
+    
+    const resolvedMessage = resolveReferences(message);
+    
+    console.log('发送给后端的完整消息:', resolvedMessage);
     
     try {
         const response = await fetch(`${API_BASE_URL}/chat`, {
@@ -1245,7 +1198,7 @@ async function sendChatMessage() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                message: message,
+                message: resolvedMessage,
                 api_key: apiKey,
                 model_name: elements.modelNameInput.value.trim()
             })
@@ -1254,7 +1207,9 @@ async function sendChatMessage() {
         const data = await response.json();
         
         if (data.success) {
-            addChatMessage(data.data.response, false);
+            const responseText = data.data.response;
+            addChatMessage(responseText, false);
+            parseAndUpdateShotsFromResponse(responseText);
         } else {
             await showCustomAlert(data.error || '聊天失败', '❌');
         }
@@ -1266,21 +1221,93 @@ async function sendChatMessage() {
     }
 }
 
+function parseAndUpdateShotsFromResponse(response) {
+    const shotPattern = /第\s*(\d+)\s*镜[\s\S]*?(?=第\s*\d+\s*镜|$)/g;
+    let match;
+    
+    while ((match = shotPattern.exec(response)) !== null) {
+        const shotIndex = parseInt(match[1]);
+        const shotContent = match[0];
+        
+        let title = '';
+        const titleMatch = shotContent.match(/标题[：:]?\s*(.+)/);
+        if (titleMatch) {
+            title = titleMatch[1].trim();
+        }
+        
+        let description = '';
+        const descMatch = shotContent.match(/画面描述[：:]?\s*[\s\S]+?(?=\n\s*\w+[：:]|$)/);
+        if (descMatch) {
+            description = descMatch[0].replace(/画面描述[：:]?\s*/, '').trim();
+        }
+        
+        if (title || description) {
+            updateShotFromChat(shotIndex, { title, description: description || shotContent });
+        }
+    }
+}
+
 function clearChat() {
     elements.chatMessages.innerHTML = `
         <div class="chat-welcome">
-            <span class="welcome-icon">👋</span>
-            <p>你好！我是你的剧本修改助手。</p>
-            <p>你可以让我帮你修改剧本、调整分镜等。</p>
+            <span class="welcome-icon">👤</span>
+            <p>你好！我是你的剧本助手。</p>
+            <p>上传图片后输入要求即可生成剧本。</p>
             <p>点击分镜后可以引用到这里进行修改。</p>
         </div>
     `;
 }
 
+const referencedShots = [];
+
 function referenceShotToChat(shotIndex, shotTitle, shotContent) {
-    const referenceText = `请修改第${shotIndex}镜：${shotTitle}\n\n当前内容：\n${shotContent}`;
-    elements.chatInput.value = referenceText;
+    const referenceId = `[引用:${shotIndex}]`;
+    referencedShots.push({
+        id: referenceId,
+        index: shotIndex,
+        title: shotTitle,
+        content: shotContent
+    });
+    
+    const tag = document.createElement('span');
+    tag.className = 'reference-tag';
+    tag.textContent = referenceId;
+    tag.setAttribute('data-reference', referenceId);
+    tag.setAttribute('contenteditable', 'false');
+    
     elements.chatInput.focus();
+    
+    const range = document.createRange();
+    const selection = window.getSelection();
+    
+    if (elements.chatInput.childNodes.length > 0) {
+        const lastChild = elements.chatInput.lastChild;
+        range.selectNodeContents(lastChild);
+        range.collapse(false);
+    } else {
+        range.selectNodeContents(elements.chatInput);
+        range.collapse(true);
+    }
+    
+    if (elements.chatInput.innerText.trim()) {
+        range.insertNode(document.createTextNode('\n'));
+        range.collapse(false);
+    }
+    
+    range.insertNode(tag);
+    range.collapse(false);
+    
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
+function resolveReferences(message) {
+    let resolved = message;
+    referencedShots.forEach(shot => {
+        const replacement = `\n\n【第${shot.index}镜：${shot.title}】\n${shot.content}\n`;
+        resolved = resolved.replace(shot.id, replacement);
+    });
+    return resolved;
 }
 
 async function updateScriptState(scriptData) {
@@ -1302,5 +1329,4 @@ async function updateScriptState(scriptData) {
     }
 }
 
-// 启动应用
 document.addEventListener('DOMContentLoaded', init);
