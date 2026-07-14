@@ -116,6 +116,7 @@ const elements = {
     apiKeyInput: document.getElementById('api-key'),
     apiKeyToggleBtn: document.getElementById('toggle-api-key-visibility'),
     modelNameInput: document.getElementById('model-name'),
+    shotsCountInput: document.getElementById('shots-count-input'),
     
     generateBtn: document.getElementById('generate-btn'),
     clearHistoryBtn: document.getElementById('clear-history'),
@@ -296,7 +297,7 @@ async function generateScript() {
     const apiKey = elements.apiKeyInput.value.trim();
     const modelName = elements.modelNameInput.value.trim();
     const text = elements.chatInput.innerText.trim();
-    const shotsCount = elements.shotsCountInput ? elements.shotsCountInput.value.trim() : '';
+    const shotsCount = elements.shotsCountInput.value.trim();
 
     if (!apiKey) {
         showError('请输入 API 密钥');
@@ -1150,7 +1151,7 @@ async function sendChatMessage() {
 
 async function handleFirstGeneration(message, inputImages, apiKey) {
     const modelName = elements.modelNameInput.value.trim();
-    const shotsCount = elements.shotsCountInput ? elements.shotsCountInput.value.trim() : '';
+    const shotsCount = elements.shotsCountInput.value.trim();
     
     if (state.images.length === 0 && inputImages.length === 0 && !message) {
         showError('请上传图片或输入要求');

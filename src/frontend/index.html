@@ -77,6 +77,10 @@
                                 <span class="tooltip">添加图片</span>
                             </button>
                             <input type="file" id="chat-file-input" accept="image/*" style="display: none;">
+                            <div class="shots-count-input-wrapper">
+                                <span class="shots-count-label">镜头数</span>
+                                <input type="number" id="shots-count-input" min="1" max="10" placeholder="自动">
+                            </div>
                             <button class="btn-send" id="send-chat-btn">发送</button>
                         </div>
                     </div>
@@ -166,7 +170,7 @@
             </div>
         </div>
 
-        <script src="app.js?v=23"></script>
+        <script src="app.js?v=24"></script>
     </div>
 </body>
 </html>
