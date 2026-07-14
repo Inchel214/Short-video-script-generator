@@ -10,7 +10,6 @@ const API_BASE_URL = 'http://127.0.0.1:5000/api';
 const state = {
     images: [],
     isGenerating: false,
-    currentStep: 1,
     synopsisExpanded: false,
     lastResult: null,
     abortController: null,
@@ -118,15 +117,6 @@ const elements = {
     apiKeyToggleBtn: document.getElementById('toggle-api-key-visibility'),
     modelNameInput: document.getElementById('model-name'),
     
-    uploadArea: document.getElementById('upload-area'),
-    fileInput: document.getElementById('file-input'),
-    previewSection: document.getElementById('preview-section'),
-    imagePreview: document.getElementById('image-preview'),
-    imageCount: document.getElementById('image-count'),
-    clearImagesBtn: document.getElementById('clear-images'),
-    
-    shotsCountInput: document.getElementById('shots-count-input'),
-    
     generateBtn: document.getElementById('generate-btn'),
     clearHistoryBtn: document.getElementById('clear-history'),
     retryBtn: document.getElementById('retry-btn'),
@@ -140,14 +130,14 @@ const elements = {
     shotsList: document.getElementById('shots-list'),
     shotCount: document.getElementById('shot-count'),
     
-    steps: document.querySelectorAll('.step'),
-    
     updateBtn: document.getElementById('update-btn'),
     
     chatMessages: document.getElementById('chat-messages'),
     chatInput: document.getElementById('chat-input'),
     sendChatBtn: document.getElementById('send-chat-btn'),
-    clearChatBtn: document.getElementById('clear-chat')
+    clearChatBtn: document.getElementById('clear-chat'),
+    uploadImageBtn: document.getElementById('upload-image-btn'),
+    chatFileInput: document.getElementById('chat-file-input')
 };
 
 function init() {
@@ -158,26 +148,15 @@ function init() {
     if (state.lastResult) {
         displayResult(state.lastResult);
     }
-    setStep(1);
 }
 
 function setupEventListeners() {
-    elements.uploadArea.addEventListener('click', () => {
-        elements.fileInput.click();
-    });
-    
-    elements.fileInput.addEventListener('change', handleFileSelect);
-    
-    elements.uploadArea.addEventListener('dragover', handleDragOver);
-    elements.uploadArea.addEventListener('dragleave', handleDragLeave);
-    elements.uploadArea.addEventListener('drop', handleDrop);
-    
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
             if (!state.lastResult) {
                 loadStateFromStorage();
             }
-            if (state.lastResult) {
+            if (state.lastResult && elements.resultSection && elements.errorSection) {
                 elements.resultSection.style.display = 'block';
                 elements.errorSection.style.display = 'none';
                 displayResult(state.lastResult);
@@ -188,40 +167,64 @@ function setupEventListeners() {
     if (elements.apiKeyToggleBtn) {
         elements.apiKeyToggleBtn.addEventListener('click', toggleApiKeyVisibility);
     }
-
-    elements.clearImagesBtn.addEventListener('click', clearImages);
     
-    elements.generateBtn.addEventListener('click', () => {
-        if (state.isGenerating) {
-            stopGeneration();
-        } else {
+    if (elements.clearHistoryBtn) {
+        elements.clearHistoryBtn.addEventListener('click', clearHistory);
+    }
+    
+    if (elements.retryBtn) {
+        elements.retryBtn.addEventListener('click', () => {
+            hideError();
             generateScript();
-        }
-    });
+        });
+    }
     
-    elements.clearHistoryBtn.addEventListener('click', clearHistory);
-    
-    elements.retryBtn.addEventListener('click', () => {
-        hideError();
-        generateScript();
-    });
-    
-    elements.exportBtn.addEventListener('click', exportScript);
+    if (elements.exportBtn) {
+        elements.exportBtn.addEventListener('click', exportScript);
+    }
     
     if (elements.updateBtn) {
         elements.updateBtn.addEventListener('click', handleUpdateClick);
     }
     
-    elements.sendChatBtn.addEventListener('click', sendChatMessage);
+    if (elements.sendChatBtn) {
+        elements.sendChatBtn.addEventListener('click', () => {
+            if (state.isGenerating) {
+                stopGeneration();
+            } else {
+                sendChatMessage();
+            }
+        });
+    }
     
-    elements.chatInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendChatMessage();
-        }
-    });
+    if (elements.uploadImageBtn) {
+        elements.uploadImageBtn.addEventListener('click', () => {
+            if (elements.chatFileInput) {
+                elements.chatFileInput.click();
+            }
+        });
+    }
     
-    elements.clearChatBtn.addEventListener('click', clearChat);
+    if (elements.chatFileInput) {
+        elements.chatFileInput.addEventListener('change', handleChatFileSelect);
+    }
+    
+    if (elements.chatInput) {
+        elements.chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+        
+        elements.chatInput.addEventListener('dragover', handleChatInputDragOver);
+        elements.chatInput.addEventListener('dragleave', handleChatInputDragLeave);
+        elements.chatInput.addEventListener('drop', handleChatInputDrop);
+    }
+    
+    if (elements.clearChatBtn) {
+        elements.clearChatBtn.addEventListener('click', clearChat);
+    }
     
     setupElectronUpdateListener();
 }
@@ -261,53 +264,23 @@ function handleFileSelect(event) {
     }
 }
 
-function handleDragOver(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    elements.uploadArea.style.borderColor = '#667eea';
-    elements.uploadArea.style.background = '#f8f8ff';
-}
-
-function handleDragLeave(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    elements.uploadArea.style.borderColor = '#ddd';
-    elements.uploadArea.style.background = 'white';
-}
-
-function handleDrop(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    elements.uploadArea.style.borderColor = '#ddd';
-    elements.uploadArea.style.background = 'white';
-    
-    const files = event.dataTransfer.files;
+async function handleChatFileSelect(event) {
+    const files = event.target.files;
     if (files.length > 0) {
-        processFiles(files);
-    }
-}
-
-async function processFiles(files) {
-    console.log('开始处理文件，数量:', files.length);
-    
-    for (let file of files) {
-        if (!file.type.startsWith('image/')) {
-            console.warn('跳过非图片文件:', file.name);
-            continue;
-        }
-        
-        try {
-            const base64 = await fileToBase64(file);
-            state.images.push(base64);
-            console.log('已添加图片:', file.name);
-        } catch (error) {
-            console.error('处理图片失败:', error);
-            showError('处理图片失败: ' + error.message);
+        for (let file of files) {
+            if (!file.type.startsWith('image/')) {
+                continue;
+            }
+            
+            try {
+                const base64 = await fileToBase64(file);
+                state.images.push(base64);
+                insertImageIntoChatInput(base64);
+            } catch (error) {
+                console.error('处理图片失败:', error);
+            }
         }
     }
-    
-    updateImagePreview();
-    saveConfig();
 }
 
 function fileToBase64(file) {
@@ -319,51 +292,11 @@ function fileToBase64(file) {
     });
 }
 
-function updateImagePreview() {
-    const count = state.images.length;
-    
-    elements.imageCount.textContent = count;
-    
-    elements.previewSection.style.display = count > 0 ? 'block' : 'none';
-    
-    elements.imagePreview.innerHTML = '';
-    
-    state.images.forEach((base64, index) => {
-        const item = document.createElement('div');
-        item.className = 'image-item';
-        item.innerHTML = `
-            <img src="${base64}" alt="图片${index + 1}">
-            <button class="delete-btn" data-index="${index}">×</button>
-        `;
-        
-        item.querySelector('.delete-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            const idx = parseInt(e.target.dataset.index);
-            deleteImage(idx);
-        });
-        
-        elements.imagePreview.appendChild(item);
-    });
-}
-
-function deleteImage(index) {
-    console.log('删除图片，索引:', index);
-    state.images.splice(index, 1);
-    updateImagePreview();
-}
-
-function clearImages() {
-    console.log('清空所有图片');
-    state.images = [];
-    elements.fileInput.value = '';
-    updateImagePreview();
-}
-
 async function generateScript() {
     const apiKey = elements.apiKeyInput.value.trim();
     const modelName = elements.modelNameInput.value.trim();
     const text = elements.chatInput.innerText.trim();
-    const shotsCount = elements.shotsCountInput.value.trim();
+    const shotsCount = elements.shotsCountInput ? elements.shotsCountInput.value.trim() : '';
 
     if (!apiKey) {
         showError('请输入 API 密钥');
@@ -389,9 +322,7 @@ async function generateScript() {
     
     saveConfig();
     showLoading();
-    updateGenerateBtnState();
-
-    setStep(2);
+    updateSendBtnState(true);
 
     console.log('开始生成剧本');
     console.log('API 密钥:', apiKey ? '已提供' : '未提供');
@@ -423,11 +354,6 @@ async function generateScript() {
         if (data.success) {
             console.log('响应成功，data:', JSON.stringify(data.data, null, 2));
             
-            setStep(3);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            setStep(4);
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
             displayResult(data.data);
             
             updateScriptState(data.data);
@@ -451,15 +377,19 @@ async function generateScript() {
             state.abortTimeoutId = null;
         }
         hideLoading();
-        updateGenerateBtnState();
+        updateSendBtnState(false);
     }
 }
 
 async function stopGeneration() {
-    console.log('停止生成');
+    console.log('停止生成 - isGenerating:', state.isGenerating);
+    console.log('停止生成 - abortController:', !!state.abortController);
     
     if (state.abortController) {
+        console.log('调用 abort()');
         state.abortController.abort();
+    } else {
+        console.log('abortController 为 null');
     }
     
     try {
@@ -472,6 +402,7 @@ async function stopGeneration() {
 }
 
 function updateGenerateBtnState() {
+    if (!elements.generateBtn) return;
     const generateIcon = elements.generateBtn.querySelector('.generate-icon');
     const generateText = elements.generateBtn.querySelector('.generate-text');
     
@@ -494,6 +425,20 @@ function updateGenerateBtnState() {
     }
 }
 
+function updateSendBtnState(isGenerating) {
+    if (!elements.sendChatBtn) return;
+    
+    if (isGenerating) {
+        elements.sendChatBtn.classList.add('stop-mode');
+        elements.sendChatBtn.textContent = '停止生成';
+        elements.sendChatBtn.disabled = false;
+    } else {
+        elements.sendChatBtn.classList.remove('stop-mode');
+        elements.sendChatBtn.textContent = '发送';
+        elements.sendChatBtn.disabled = false;
+    }
+}
+
 function showLoading() {
     elements.loadingSection.style.display = 'flex';
     elements.resultSection.style.display = 'none';
@@ -502,7 +447,9 @@ function showLoading() {
 
 function hideLoading() {
     elements.loadingSection.style.display = 'none';
-    elements.generateBtn.disabled = false;
+    if (elements.generateBtn) {
+        elements.generateBtn.disabled = false;
+    }
     if (state.lastResult) {
         elements.resultSection.style.display = 'block';
     }
@@ -517,22 +464,6 @@ function showError(message) {
 
 function hideError() {
     elements.errorSection.style.display = 'none';
-}
-
-function setStep(step) {
-    state.currentStep = step;
-    elements.steps.forEach((stepEl, index) => {
-        const stepNum = index + 1;
-        stepEl.classList.remove('pending', 'active', 'completed');
-
-        if (stepNum < step) {
-            stepEl.classList.add('completed');
-        } else if (stepNum === step) {
-            stepEl.classList.add('active');
-        } else {
-            stepEl.classList.add('pending');
-        }
-    });
 }
 
 function tryParseJsonString(value) {
@@ -686,7 +617,6 @@ function displayResult(result) {
         elements.shotsList.innerHTML = '<p class="placeholder">暂无分镜内容</p>';
     }
     
-    setStep(5);
     elements.resultSection.style.display = 'block';
 }
 
@@ -1129,6 +1059,10 @@ async function handleUpdateClick() {
 }
 
 function addChatMessage(message, isUser) {
+    addChatMessageWithImages(message, [], isUser);
+}
+
+function addChatMessageWithImages(message, images, isUser) {
     const messageEl = document.createElement('div');
     messageEl.className = `chat-message ${isUser ? 'user' : 'assistant'}`;
     
@@ -1142,8 +1076,28 @@ function addChatMessage(message, isUser) {
     const bubble = document.createElement('div');
     bubble.className = 'chat-bubble';
     
-    const highlightedMessage = message.replace(/(\[引用:\d+\])/g, '<span class="reference-tag">$1</span>');
-    bubble.innerHTML = highlightedMessage;
+    if (images.length > 0) {
+        const imagesContainer = document.createElement('div');
+        imagesContainer.className = 'chat-images';
+        
+        images.forEach(imgSrc => {
+            const img = document.createElement('img');
+            img.src = imgSrc;
+            img.className = 'chat-image';
+            img.alt = '图片';
+            imagesContainer.appendChild(img);
+        });
+        
+        bubble.appendChild(imagesContainer);
+    }
+    
+    if (message) {
+        const highlightedMessage = message.replace(/(\[引用:\d+\])/g, '<span class="reference-tag">$1</span>');
+        const textContainer = document.createElement('div');
+        textContainer.className = 'chat-message-text';
+        textContainer.innerHTML = highlightedMessage;
+        bubble.appendChild(textContainer);
+    }
     
     const time = document.createElement('div');
     time.className = 'chat-time';
@@ -1174,7 +1128,9 @@ function scrollToBottom() {
 
 async function sendChatMessage() {
     const message = elements.chatInput.innerText.trim();
-    if (!message) return;
+    const inputImages = getImagesFromChatInput();
+    
+    if (!message && inputImages.length === 0) return;
     
     const apiKey = elements.apiKeyInput.value.trim();
     if (!apiKey) {
@@ -1182,14 +1138,115 @@ async function sendChatMessage() {
         return;
     }
     
+    const chatMessages = document.querySelectorAll('.chat-message');
+    const hasChatHistory = chatMessages.length > 1;
+    
+    if (!hasChatHistory) {
+        await handleFirstGeneration(message, inputImages, apiKey);
+    } else {
+        await handleChat(message, inputImages, apiKey);
+    }
+}
+
+async function handleFirstGeneration(message, inputImages, apiKey) {
+    const modelName = elements.modelNameInput.value.trim();
+    const shotsCount = elements.shotsCountInput ? elements.shotsCountInput.value.trim() : '';
+    
+    if (state.images.length === 0 && inputImages.length === 0 && !message) {
+        showError('请上传图片或输入要求');
+        return;
+    }
+    
+    inputImages.forEach(img => state.images.push(img));
+    
+    state.isGenerating = true;
+    state.abortController = new AbortController();
+    
+    const timeoutId = setTimeout(() => {
+        if (state.abortController && !state.abortController.signal.aborted) {
+            state.abortController.abort();
+            console.error('请求超时');
+        }
+    }, 300000);
+    
+    state.abortTimeoutId = timeoutId;
+    
+    saveConfig();
+    showLoading();
+    updateSendBtnState(true);
+    
+    console.log('开始生成剧本');
+    console.log('API 密钥:', apiKey ? '已提供' : '未提供');
+    console.log('模型:', modelName);
+    console.log('图片数量:', state.images.length);
+    console.log('文字长度:', message.length);
+    
+    try {
+        const requestBody = {
+            images: state.images,
+            text: message,
+            api_key: apiKey,
+            model_name: modelName,
+            shots_count: shotsCount ? parseInt(shotsCount) : null
+        };
+        
+        const response = await fetch(`${API_BASE_URL}/generate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody),
+            signal: state.abortController.signal
+        });
+        
+        const data = await response.json();
+        console.log('API 响应:', JSON.stringify(data, null, 2));
+        
+        if (data.success) {
+            console.log('响应成功，data:', JSON.stringify(data.data, null, 2));
+            
+            displayResult(data.data);
+            
+            updateScriptState(data.data);
+            
+            addChatMessageWithImages(message, inputImages, true);
+            addChatMessage('剧本已生成！', false);
+        } else {
+            throw new Error(data.error || '生成失败');
+        }
+        
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('生成已被取消');
+            showError('生成已停止');
+        } else {
+            console.error('生成剧本失败:', error);
+            showError(error.message || '网络错误，请检查后端服务是否启动');
+        }
+    } finally {
+        state.isGenerating = false;
+        state.abortController = null;
+        if (state.abortTimeoutId) {
+            clearTimeout(state.abortTimeoutId);
+            state.abortTimeoutId = null;
+        }
+        hideLoading();
+        updateSendBtnState(false);
+        elements.chatInput.innerHTML = '';
+        clearChatInputImages();
+    }
+}
+
+async function handleChat(message, inputImages, apiKey) {
     elements.chatInput.innerHTML = '';
     elements.sendChatBtn.disabled = true;
     
-    addChatMessage(message, true);
+    addChatMessageWithImages(message, inputImages, true);
     
     const resolvedMessage = resolveReferences(message);
     
     console.log('发送给后端的完整消息:', resolvedMessage);
+    console.log('发送的图片数量:', inputImages.length);
     
     try {
         const response = await fetch(`${API_BASE_URL}/chat`, {
@@ -1199,6 +1256,7 @@ async function sendChatMessage() {
             },
             body: JSON.stringify({
                 message: resolvedMessage,
+                images: inputImages.length > 0 ? inputImages : state.images,
                 api_key: apiKey,
                 model_name: elements.modelNameInput.value.trim()
             })
@@ -1209,7 +1267,21 @@ async function sendChatMessage() {
         if (data.success) {
             const responseText = data.data.response;
             addChatMessage(responseText, false);
-            parseAndUpdateShotsFromResponse(responseText);
+            
+            console.log('聊天响应数据:', JSON.stringify(data, null, 2));
+            
+            if (data.data.script) {
+                console.log('data.data.script 有值，分镜数量:', data.data.script.shots ? data.data.script.shots.length : '无shots字段');
+                
+                displayResult(data.data.script);
+                
+                updateScriptState(data.data.script);
+            } else if (state.lastResult) {
+                console.log('data.data.script 为空，使用 state.lastResult');
+                displayResult(state.lastResult);
+            } else {
+                console.log('没有可用的剧本数据');
+            }
         } else {
             await showCustomAlert(data.error || '聊天失败', '❌');
         }
@@ -1218,6 +1290,7 @@ async function sendChatMessage() {
         await showCustomAlert('网络错误，请检查后端服务是否启动', '❌');
     } finally {
         elements.sendChatBtn.disabled = false;
+        clearChatInputImages();
     }
 }
 
@@ -1327,6 +1400,118 @@ async function updateScriptState(scriptData) {
     } catch (error) {
         console.error('更新剧本状态失败:', error);
     }
+}
+
+function handleChatInputDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    elements.chatInput.classList.add('drag-over');
+}
+
+function handleChatInputDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    elements.chatInput.classList.remove('drag-over');
+}
+
+async function handleChatInputDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    elements.chatInput.classList.remove('drag-over');
+    
+    const files = e.dataTransfer.files;
+    if (files.length === 0) return;
+    
+    for (let file of files) {
+        if (!file.type.startsWith('image/')) {
+            continue;
+        }
+        
+        try {
+            const base64 = await fileToBase64(file);
+            insertImageIntoChatInput(base64);
+            state.images.push(base64);
+        } catch (error) {
+            console.error('处理图片失败:', error);
+        }
+    }
+}
+
+function insertImageIntoChatInput(base64) {
+    const img = document.createElement('img');
+    img.src = base64;
+    img.className = 'chat-input-image';
+    img.setAttribute('contenteditable', 'false');
+    img.draggable = false;
+    
+    const wrapper = document.createElement('span');
+    wrapper.className = 'chat-input-image-wrapper';
+    wrapper.appendChild(img);
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'chat-input-image-close';
+    closeBtn.textContent = '×';
+    closeBtn.onclick = (e) => {
+        e.stopPropagation();
+        wrapper.remove();
+        removeImageFromState(base64);
+    };
+    wrapper.appendChild(closeBtn);
+    
+    const range = document.createRange();
+    const selection = window.getSelection();
+    
+    if (elements.chatInput.childNodes.length > 0) {
+        const lastChild = elements.chatInput.lastChild;
+        range.selectNodeContents(lastChild);
+        range.collapse(false);
+    } else {
+        range.selectNodeContents(elements.chatInput);
+        range.collapse(true);
+    }
+    
+    if (elements.chatInput.innerText.trim()) {
+        range.insertNode(document.createTextNode('\n'));
+        range.collapse(false);
+    }
+    
+    range.insertNode(wrapper);
+    range.collapse(false);
+    
+    range.insertNode(document.createTextNode('\n'));
+    range.collapse(false);
+    
+    selection.removeAllRanges();
+    selection.addRange(range);
+    
+    elements.chatInput.focus();
+}
+
+function removeImageFromState(base64) {
+    const index = state.images.indexOf(base64);
+    if (index > -1) {
+        state.images.splice(index, 1);
+        updateImagePreview();
+    }
+}
+
+function getImagesFromChatInput() {
+    const imageWrappers = elements.chatInput.querySelectorAll('.chat-input-image-wrapper');
+    const images = [];
+    
+    imageWrappers.forEach(wrapper => {
+        const img = wrapper.querySelector('img');
+        if (img) {
+            images.push(img.src);
+        }
+    });
+    
+    return images;
+}
+
+function clearChatInputImages() {
+    const imageWrappers = elements.chatInput.querySelectorAll('.chat-input-image-wrapper');
+    imageWrappers.forEach(wrapper => wrapper.remove());
 }
 
 document.addEventListener('DOMContentLoaded', init);

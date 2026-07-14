@@ -455,7 +455,7 @@ def parse_script_content(content):
     try:
         data = json.loads(cleaned_content)
         log.info("成功解析 JSON 格式剧本")
-        return data
+        return normalize_script_data(data)
     except json.JSONDecodeError as e:
         log.warning(f"JSON 解析失败: {e}")
     
@@ -465,7 +465,7 @@ def parse_script_content(content):
         try:
             data = json.loads(json_match.group())
             log.info("成功解析 JSON 格式剧本")
-            return data
+            return normalize_script_data(data)
         except json.JSONDecodeError as e:
             log.warning(f"提取后的 JSON 解析失败: {e}")
     
@@ -514,6 +514,66 @@ def parse_script_content(content):
     }
 
 
+def normalize_script_data(data):
+    """
+    标准化剧本数据，确保包含中英文两种键名
+    
+    Args:
+        data: 原始剧本数据
+    
+    Returns:
+        dict: 标准化后的剧本数据
+    """
+    log.info("开始标准化剧本数据")
+    
+    normalized = {}
+    
+    normalized['synopsis'] = data.get('synopsis', '') or data.get('剧情简介', '')
+    normalized['剧情简介'] = normalized['synopsis']
+    
+    characters = data.get('characters', '') or data.get('人物设定', '')
+    if isinstance(characters, dict):
+        characters = '\n'.join([f'{name}：{desc}' for name, desc in characters.items()])
+    normalized['characters'] = characters
+    normalized['人物设定'] = characters
+    
+    shots = data.get('shots', []) or data.get('分镜列表', [])
+    if not isinstance(shots, list):
+        shots = []
+    
+    normalized_shots = []
+    for idx, shot in enumerate(shots):
+        if not isinstance(shot, dict):
+            continue
+        
+        shot_normalized = {
+            'id': shot.get('id', idx + 1),
+            'title': shot.get('title', '') or shot.get('主题', '') or shot.get('标题', ''),
+            '主题': shot.get('主题', '') or shot.get('title', '') or shot.get('标题', ''),
+            'description': shot.get('description', '') or shot.get('画面描述', ''),
+            '画面描述': shot.get('画面描述', '') or shot.get('description', ''),
+            'duration': shot.get('duration', '') or shot.get('时长', ''),
+            '时长': shot.get('时长', '') or shot.get('duration', ''),
+            'scene': shot.get('scene', '') or shot.get('景别', ''),
+            '景别': shot.get('景别', '') or shot.get('scene', ''),
+            'camera': shot.get('camera', '') or shot.get('运镜方式', ''),
+            '运镜方式': shot.get('运镜方式', '') or shot.get('camera', ''),
+            'dialogue': shot.get('dialogue', '') or shot.get('旁白/对话', ''),
+            '旁白/对话': shot.get('旁白/对话', '') or shot.get('dialogue', ''),
+            'soundEffect': shot.get('soundEffect', '') or shot.get('音效建议', ''),
+            '音效建议': shot.get('音效建议', '') or shot.get('soundEffect', ''),
+            'expanded': shot.get('expanded', True)
+        }
+        normalized_shots.append(shot_normalized)
+    
+    normalized['shots'] = normalized_shots
+    normalized['分镜列表'] = normalized_shots
+    
+    log.info(f"标准化完成，分镜数量: {len(normalized_shots)}")
+    
+    return normalized
+
+
 def build_chat_messages(message):
     """
     构建聊天消息（包含上下文和历史）
@@ -528,19 +588,58 @@ def build_chat_messages(message):
     
     messages = []
     
-    system_content = "你是一个专业的短视频剧本编剧。你可以理解并修改剧本内容。请用自然、友好的语言回复用户，帮助用户修改和优化剧本。"
+    system_content = """你是一个专业的短视频剧本编剧。请严格输出一个纯 JSON 对象，禁止任何解释性文字、禁止 Markdown 代码块。JSON 键名必须使用双引号。
+
+当用户要求修改剧本时，请按照以下规则回复：
+1. 无论用户是修改分镜还是进行任何与剧本相关的操作，都必须输出修改后的完整剧本结构（JSON格式），包含所有分镜
+2. 修改后的剧本必须包含完整的结构：剧情简介、人物设定、分镜列表（每个分镜包含主题、时长、景别、画面描述、运镜方式、旁白/对话、音效建议）
+
+请根据当前剧本上下文进行修改，不要要求用户重新提供原剧本。
+
+输出结构必须满足以下 schema：
+{
+  "剧情简介": "字符串",
+  "人物设定": {
+    "角色名": "角色简介"
+  },
+  "分镜列表": [
+    {
+      "主题": "字符串",
+      "时长": "字符串",
+      "景别": "字符串",
+      "画面描述": "字符串",
+      "运镜方式": "字符串",
+      "旁白/对话": "字符串",
+      "音效建议": "字符串"
+    }
+  ]
+}
+
+要求：
+1. 必须使用标准 JSON 语法，键名要用双引号，字符串值也要用双引号。
+2. 分镜列表必须是数组。
+3. 不能把整个剧本包在字符串里，不能输出伪 JSON。
+4. 画面描述、旁白/对话、音效建议必须是清晰、可展示的文本。
+5. 只返回 JSON，不要包含任何前后缀文字。"""
     
     scene_memory = memory_manager.get_scene_memory()
     if memory_manager.has_scene_memory():
         script_summary = f"""【当前剧本上下文】
 剧情简介：{scene_memory["synopsis"]}
 人物设定：{scene_memory["characters"]}
-分镜数量：{len(scene_memory["shots"])}
 
 分镜列表：
 """
         for i, shot in enumerate(scene_memory["shots"], 1):
-            script_summary += f"{i}. {shot.get('title', shot.get('主题', ''))}\n"
+            script_summary += f"""第{i}镜：{shot.get('title', shot.get('主题', ''))}
+- 时长：{shot.get('时长', shot.get('duration', ''))}
+- 景别：{shot.get('景别', shot.get('scene', ''))}
+- 画面描述：{shot.get('画面描述', shot.get('description', ''))}
+- 运镜方式：{shot.get('运镜方式', shot.get('camera', ''))}
+- 旁白/对话：{shot.get('旁白/对话', shot.get('dialogue', ''))}
+- 音效建议：{shot.get('音效建议', shot.get('soundEffect', ''))}
+
+"""
         
         system_content = f"{system_content}\n\n{script_summary}"
     
@@ -622,13 +721,41 @@ def chat(message, api_key='', model_name='doubao-seed-1-6-vision-250815'):
             return {"error": "API未返回可用内容"}
         
         log.info(f"聊天响应成功，内容长度: {len(content)}")
+        log.info(f"聊天响应内容前500字符: {content[:500]}")
         
         memory_manager.add_short_term_memory("user", message)
         memory_manager.add_short_term_memory("assistant", content)
         
         log.debug("对话历史已更新")
         
-        return {"success": True, "response": content}
+        parsed_result = parse_script_content(content)
+        log.info(f"解析结果: {parsed_result}")
+        
+        if parsed_result and parsed_result.get('shots'):
+            shots = parsed_result['shots']
+            has_valid_script = False
+            
+            if len(shots) > 1:
+                has_valid_script = True
+            elif len(shots) == 1:
+                shot = shots[0]
+                if shot.get('description') or shot.get('duration') or shot.get('scene') or shot.get('camera') or shot.get('dialogue') or shot.get('soundEffect'):
+                    has_valid_script = True
+            
+            if has_valid_script:
+                log.info("聊天响应包含剧本数据，更新场景记忆")
+                memory_manager.update_scene_memory(parsed_result)
+                
+                normalized_script = normalize_script_data(parsed_result)
+                log.info(f"返回更新后的剧本，分镜数量: {len(normalized_script['shots'])}")
+                return {"success": True, "response": content, "updated_script": normalized_script}
+            else:
+                log.info("聊天响应不包含有效的剧本数据，不更新场景记忆")
+        
+        scene_memory = memory_manager.get_scene_memory()
+        normalized_memory = normalize_script_data(scene_memory)
+        log.info(f"返回当前场景记忆，分镜数量: {len(normalized_memory['shots'])}")
+        return {"success": True, "response": content, "updated_script": normalized_memory}
     
     except requests.exceptions.Timeout:
         log.error("请求超时")

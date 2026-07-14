@@ -9,8 +9,11 @@ from src.backend import logger
 import json
 import os
 
-# 创建 Flask 应用
-app = Flask(__name__)
+import os
+
+frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend')
+
+app = Flask(__name__, static_folder=frontend_dir, static_url_path='')
 CORS(app)
 
 # 获取日志记录器
@@ -67,6 +70,11 @@ def internal_error(error):
     """
     log.error(f"内部服务器错误: {str(error)}", exc_info=True)
     return api_response(error="服务器内部错误，请稍后重试", status=500)
+
+
+@app.route('/')
+def index():
+    return app.send_static_file('index.html')
 
 
 @app.route('/api/health', methods=['GET'])
@@ -295,7 +303,7 @@ def chat():
     响应:
     {
         "success": true,
-        "data": {"response": "AI回复内容"} | "error": "错误信息"
+        "data": {"response": "AI回复内容", "script": {完整剧本数据}} | "error": "错误信息"
     }
     """
     log.info("接收到聊天请求")
@@ -324,7 +332,34 @@ def chat():
             return api_response(error=result['error'], status=500)
         
         log.info("聊天成功")
-        return api_response(data={'response': result['response']})
+        
+        updated_script = result.get('updated_script')
+        log.info(f"updated_script 类型: {type(updated_script)}")
+        log.info(f"updated_script 是否有值: {updated_script is not None}")
+        
+        if updated_script:
+            shots_count = len(updated_script.get('shots', []))
+            log.info(f"返回的剧本包含 {shots_count} 个分镜")
+            
+            script_to_return = {
+                'synopsis': updated_script.get('synopsis', '') or updated_script.get('剧情简介', ''),
+                'characters': updated_script.get('characters', '') or updated_script.get('人物设定', ''),
+                'shots': updated_script.get('shots', []) or updated_script.get('分镜列表', [])
+            }
+            
+            return api_response(data={
+                'response': result['response'],
+                'script': script_to_return
+            })
+        
+        scene_memory = agent.memory_manager.get_scene_memory()
+        shots_count = len(scene_memory.get('shots', []))
+        log.info(f"返回场景记忆，包含 {shots_count} 个分镜")
+        
+        return api_response(data={
+            'response': result['response'],
+            'script': scene_memory
+        })
     
     except Exception as e:
         log.error(f"聊天时发生异常：{str(e)}", exc_info=True)
