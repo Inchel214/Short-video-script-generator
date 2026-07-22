@@ -53,6 +53,12 @@ jobs:
           name: windows-build
           path: dist/*.exe
           
+      - name: Upload unpacked artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-unpacked
+          path: dist/win-unpacked/
+          
       - name: Generate win latest.yml
         run: python scripts/generate_latest_yml.py "dist/*.exe" "dist/latest.yml"
       - name: Upload win latest.yml
@@ -301,6 +307,11 @@ jobs:
           name: windows-build
           path: windows
           
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-build-unpacked
+          path: windows-unpacked
+
       - uses: actions/download-artifact@v4
         with:
           name: win-latest-yml

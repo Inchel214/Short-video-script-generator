@@ -56,3 +56,6 @@ dist/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# GitHub 下载产物
+github产物/
